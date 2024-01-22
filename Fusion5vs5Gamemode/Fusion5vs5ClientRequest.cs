@@ -43,7 +43,7 @@ namespace Fusion5vs5Gamemode
                         var info = data.value;
                         if (Fusion5vs5Gamemode.Instance.Tag.HasValue && GamemodeManager.TryGetGamemode(Fusion5vs5Gamemode.Instance.Tag.Value, out var gamemode))
                         {
-                            Fusion5vs5Gamemode.Instance._Server.ClientRequested(info);
+                            Fusion5vs5Gamemode.Instance.Server.ClientRequested(info);
                         }
                     }
                 }

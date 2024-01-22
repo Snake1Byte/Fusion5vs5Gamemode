@@ -1,6 +1,9 @@
-﻿using LabFusion.Data;
+﻿using System;
+using Fusion5vs5Gamemode.SDK;
+using LabFusion.Data;
 using LabFusion.Representation;
 using LabFusion.SDK.Gamemodes;
+using MelonLoader;
 
 namespace Fusion5vs5Gamemode
 {
@@ -16,7 +19,6 @@ namespace Fusion5vs5Gamemode
             public const string PlayerKillsKey = DefaultPrefix + ".Kills";
             public const string PlayerDeathsKey = DefaultPrefix + ".Deaths";
             public const string PlayerAssistsKey = DefaultPrefix + ".Assists";
-            public const string GameStateKey = DefaultPrefix + ".State";
             public const string RoundNumberKey = DefaultPrefix + ".RoundNumber";
         }
 
@@ -24,9 +26,11 @@ namespace Fusion5vs5Gamemode
         {
             public const string KillPlayer = "KillPlayer";
             public const string RevivePlayer = "RevivePlayer";
+            public const string RespawnPlayer = "RespawnPlayer";
             public const string Fusion5vs5Started = "Fusion5vs5Loaded";
             public const string Fusion5vs5Aborted = "Fusion5vs5Aborted";
             public const string Fusion5vs5Over = "Game Over";
+            public const string NewGameState = "NewGameState";
         }
 
         public static class ClientRequest
@@ -65,7 +69,6 @@ namespace Fusion5vs5Gamemode
             return $"{Metadata.TeamNameKey}.{team?.TeamName}";
         }
         
-        
         public static PlayerId GetPlayerFromValue(string player)
         {
             ulong _playerId = ulong.Parse(player);
@@ -90,7 +93,7 @@ namespace Fusion5vs5Gamemode
                 }
             }
             return null;
-        }
+        }                 
         
         public static int GetPlayerKills(FusionDictionary<string, string> metadata, PlayerId killer)
         {

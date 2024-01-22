@@ -20,7 +20,7 @@ namespace Fusion5vs5Gamemode.SDK
     [AddComponentMenu("BONELAB Fusion/Gamemodes/5vs5 Gamemode/Fusion5vs5GamemodeDescriptor")]
     [DisallowMultipleComponent]
 #endif
-    public sealed class Fusion5vs5GamemodeDescriptor : FusionMarrowBehaviour
+    public class Fusion5vs5GamemodeDescriptor : FusionMarrowBehaviour
     {
         public Fusion5vs5GamemodeTeams DefendingTeam = Fusion5vs5GamemodeTeams.Terrorists;
         public string CounterTerroristTeamName = "Sabrelake";
@@ -29,15 +29,26 @@ namespace Fusion5vs5Gamemode.SDK
         [Space(20)]
 #endif
         public AvatarCrate DefaultAvatar;
-        public enum Fusion5vs5GamemodeTeams
-        {
-            CounterTerrorists,
-            Terrorists
-        }
+        
 #if MELONLOADER
         public Fusion5vs5GamemodeDescriptor(IntPtr intPtr) : base(intPtr)
         {
         }
+        
+        public static readonly FusionComponentCache<GameObject, Fusion5vs5GamemodeDescriptor> Cache =
+            new FusionComponentCache<GameObject, Fusion5vs5GamemodeDescriptor>();
+
+        private void Awake()
+        {
+            Cache.Add(gameObject, this);
+        }
+
+        private void OnDestroy()
+        {
+            Cache.Remove(gameObject);
+        }
+
+
 #else
         public override string Comment =>
             "A proxy script for triggering and configuring Team Deathmatch in your map.\n" +
@@ -45,5 +56,11 @@ namespace Fusion5vs5Gamemode.SDK
             "Most settings can be configured, such as round length, team names, logos, etc.\n" +
             "The gamemode can also be started and stopped from here.";
 #endif
+    }
+    
+    public enum Fusion5vs5GamemodeTeams
+    {
+        CounterTerrorists,
+        Terrorists
     }
 }
