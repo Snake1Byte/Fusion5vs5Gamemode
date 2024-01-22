@@ -5,6 +5,7 @@ using MelonLoader;
 using SLZ.Combat;
 using static PlayerDamageReceiver;
 using System.Runtime.InteropServices;
+using BoneLib.BoneMenu.Elements;
 using SLZ.AI;
 using SLZ.Marrow.Data;
 using UnityEngine;
@@ -15,6 +16,16 @@ namespace Fusion5vs5Gamemode
     //[HarmonyPatch(typeof(Player_Health))]
     public static class Patches
     {
+        
+        public static void SetIncrement(this IntElement a, int b)
+        {
+            var type = a.GetType();
+            var field = type.GetField("_increment", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (field != null)
+            {
+                field.SetValue(a, b);
+            }
+        }
         // [HarmonyPatch(nameof(Player_Health.OnReceivedDamage))]
         // [HarmonyPostfix]
         // public static void OnReceivedDamage(Player_Health __instance, Attack attack, BodyPart part)
