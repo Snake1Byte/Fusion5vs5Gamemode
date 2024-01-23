@@ -15,7 +15,7 @@ namespace Fusion5vs5Gamemode
                 }
             }
         }
-        
+
         public static void InvokeTerroristTeamJoined(string playerName)
         {
             foreach (var ultEvent in Invoke5vs5UltEvent.Cache.Components)
@@ -27,31 +27,33 @@ namespace Fusion5vs5Gamemode
                 }
             }
         }
-        
-        public static void InvokeCounterTerroristTeamScored(int totalScore)
+
+        public static void InvokeCounterTerroristTeamScored(int totalScore, bool wasLocalTeam)
         {
             foreach (var ultEvent in Invoke5vs5UltEvent.Cache.Components)
             {
                 if (ultEvent.Event == Invoke5vs5UltEvent.Fusion5vs5GamemodeUltEvents.CounterTerroristTeamScored)
                 {
+                    ultEvent.WasLocalTeam = wasLocalTeam;
                     ultEvent.CounterTerroristTeamScoredValue = totalScore;
                     ultEvent.Invoke();
                 }
             }
         }
-        
-        public static void InvokeTerroristTeamJoinedScored(int totalScore)
+
+        public static void InvokeTerroristTeamJoinedScored(int totalScore, bool wasLocalTeam)
         {
             foreach (var ultEvent in Invoke5vs5UltEvent.Cache.Components)
             {
                 if (ultEvent.Event == Invoke5vs5UltEvent.Fusion5vs5GamemodeUltEvents.TerroristTeamScored)
                 {
+                    ultEvent.WasLocalTeam = wasLocalTeam;
                     ultEvent.TerroristTeamScoredValue = totalScore;
                     ultEvent.Invoke();
                 }
             }
         }
-        
+
         public static void InvokeNewRoundStarted(int roundNumber)
         {
             foreach (var ultEvent in Invoke5vs5UltEvent.Cache.Components)
@@ -63,32 +65,34 @@ namespace Fusion5vs5Gamemode
                 }
             }
         }
-        
-        public static void InvokePlayerKilledAnotherPlayer(string killerName, string killedName)
+
+        public static void InvokePlayerKilledAnotherPlayer(string killerName, string killedName, bool wasLocalPlayer)
         {
             foreach (var ultEvent in Invoke5vs5UltEvent.Cache.Components)
             {
                 if (ultEvent.Event == Invoke5vs5UltEvent.Fusion5vs5GamemodeUltEvents.PlayerKilledAnotherPlayer)
                 {
+                    ultEvent.WasLocalPlayer = wasLocalPlayer;
                     ultEvent.PlayerKilledAnotherPlayerValueKiller = killerName;
                     ultEvent.PlayerKilledAnotherPlayerValueKilled = killedName;
                     ultEvent.Invoke();
                 }
             }
         }
-        
-        public static void InvokePlayerSuicide(string playerName)
+
+        public static void InvokePlayerSuicide(string playerName, bool wasLocalPlayer)
         {
             foreach (var ultEvent in Invoke5vs5UltEvent.Cache.Components)
             {
                 if (ultEvent.Event == Invoke5vs5UltEvent.Fusion5vs5GamemodeUltEvents.PlayerSuicide)
                 {
+                    ultEvent.WasLocalPlayer = wasLocalPlayer;
                     ultEvent.PlayerSuicideValue = playerName;
                     ultEvent.Invoke();
                 }
             }
         }
-        
+
         public static void InvokeWarmupPhaseStarted()
         {
             foreach (var ultEvent in Invoke5vs5UltEvent.Cache.Components)
@@ -99,7 +103,7 @@ namespace Fusion5vs5Gamemode
                 }
             }
         }
-        
+
         public static void InvokeBuyPhaseStarted()
         {
             foreach (var ultEvent in Invoke5vs5UltEvent.Cache.Components)
@@ -110,7 +114,7 @@ namespace Fusion5vs5Gamemode
                 }
             }
         }
-        
+
         public static void InvokePlayPhaseStarted()
         {
             foreach (var ultEvent in Invoke5vs5UltEvent.Cache.Components)
@@ -121,7 +125,7 @@ namespace Fusion5vs5Gamemode
                 }
             }
         }
-        
+
         public static void InvokeRoundEndPhaseStarted()
         {
             foreach (var ultEvent in Invoke5vs5UltEvent.Cache.Components)
@@ -132,7 +136,7 @@ namespace Fusion5vs5Gamemode
                 }
             }
         }
-        
+
         public static void InvokeMatchHalfPhaseStarted()
         {
             foreach (var ultEvent in Invoke5vs5UltEvent.Cache.Components)
@@ -143,7 +147,7 @@ namespace Fusion5vs5Gamemode
                 }
             }
         }
-        
+
         public static void InvokeMatchEndPhaseStarted()
         {
             foreach (var ultEvent in Invoke5vs5UltEvent.Cache.Components)
@@ -154,6 +158,5 @@ namespace Fusion5vs5Gamemode
                 }
             }
         }
-        
     }
 }

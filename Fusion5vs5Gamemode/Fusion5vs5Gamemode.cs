@@ -196,8 +196,8 @@ namespace Fusion5vs5Gamemode
             }
             else if (key.StartsWith(Commons.Metadata.TeamNameKey))
             {
-                string _teamId = key.Split('.')[3];
-                Fusion5vs5GamemodeTeams team = (Fusion5vs5GamemodeTeams)Enum.Parse(typeof(Fusion5vs5Gamemode), _teamId);
+                string teamName = key.Split('.')[3];
+                Fusion5vs5GamemodeTeams team = GetTeamFromValue(teamName);
                 TeamRepresentation rep = new TeamRepresentation { Team = team, DisplayName = value };
                 OnTeamNameChanged(rep);
             }
@@ -205,7 +205,9 @@ namespace Fusion5vs5Gamemode
             {
                 string _player = key.Split('.')[2];
                 PlayerId player = GetPlayerFromValue(_player);
-                OnTeamChanged(player, value);
+                Fusion5vs5GamemodeTeams _team = GetTeamFromValue(value);
+                TeamRepresentation team = GetTeamRepresentation(_team);
+                OnTeamChanged(player, team);
             }
             else if (key.Equals(Commons.Metadata.RoundNumberKey))
             {
@@ -228,17 +230,34 @@ namespace Fusion5vs5Gamemode
                 string _player = eventName.Split('.')[1];
                 string _team = eventName.Split('.')[2];
                 PlayerId player = GetPlayerFromValue(_player);
-                Fusion5vs5GamemodeTeams team = (Fusion5vs5GamemodeTeams)Enum.Parse(typeof(Fusion5vs5Gamemode), _team);
+                Fusion5vs5GamemodeTeams team = GetTeamFromValue(_team);
+                ;
 
                 RevivePlayer(player, team);
-            } else if (eventName.StartsWith(Events.RespawnPlayer))
+            }
+            else if (eventName.StartsWith(Events.RespawnPlayer))
             {
                 string _player = eventName.Split('.')[1];
                 string _team = eventName.Split('.')[2];
                 PlayerId player = GetPlayerFromValue(_player);
-                Fusion5vs5GamemodeTeams team = (Fusion5vs5GamemodeTeams)Enum.Parse(typeof(Fusion5vs5Gamemode), _team);
+                Fusion5vs5GamemodeTeams team = GetTeamFromValue(_team);
 
                 RespawnPlayer(player, team);
+            }
+            else if (eventName.StartsWith(Events.TeamWonRound))
+            {
+                Fusion5vs5GamemodeTeams _team = GetTeamFromValue(eventName.Split('.')[1]);
+                TeamRepresentation team = GetTeamRepresentation(_team);
+                OnTeamWonRound(team);
+            } else if (eventName.StartsWith(Events.TeamWonGame))
+            {
+                Fusion5vs5GamemodeTeams _team = GetTeamFromValue(eventName.Split('.')[1]);
+                TeamRepresentation team = GetTeamRepresentation(_team);
+                OnTeamWonGame(team);
+                
+            } else if (eventName.Equals(Events.GameTie))
+            {
+                
             }
             else if (eventName.Equals(Events.Fusion5vs5Started))
             {
@@ -263,7 +282,7 @@ namespace Fusion5vs5Gamemode
                 string _newState = eventName.Split('.')[1];
                 GameStates newState = (GameStates)Enum.Parse(typeof(GameStates), _newState);
                 OnStateChanged(newState);
-            } 
+            }
         }
 
         protected override void OnUpdate()
@@ -323,31 +342,31 @@ namespace Fusion5vs5Gamemode
 
         private void StartPlayPhase()
         {
-            Team team = GetTeam(PlayerIdManager.LocalId);
-            if (team != null && team.Equals(CounterTerroristTeam))
+            if (_LocalTeam == _DefendingTeam)
             {
                 // TODO change notification
-                Notify("Round start", "Do counter terrorist stuff...");
+                Notify("Round start", "Do defending team stuff...");
             }
-            else if (team.Equals(TerroristTeam))
+            else
             {
-                Notify("Round start", "Do terrorist stuff...");
+                Notify("Round start", "Do attacking team stuff...");
             }
         }
 
         private void StartRoundEndPhase()
         {
-            Notify("Round over", $"{winner.TeamName} wins.");
         }
 
         private void StartMatchHalfPhase()
         {
-            Notify("Switching sides", $"Switching to {switchedTo.TeamName}.");
+            Fusion5vs5GamemodeTeams _team = _LocalTeam == Fusion5vs5GamemodeTeams.Terrorists
+                ? Fusion5vs5GamemodeTeams.CounterTerrorists
+                : Fusion5vs5GamemodeTeams.Terrorists;
+            Notify("Switching sides", $"Switching to team {GetTeamDisplayName(_team)}.");
         }
 
         private void StartMatchEndPhase()
         {
-            Notify("Match over", $"{totalWinner.TeamName} wins the match.");
         }
 
         private void RequestJoinDefenders()
@@ -372,10 +391,13 @@ namespace Fusion5vs5Gamemode
             RequestToServer(request);
         }
 
-        private void OnTeamChanged(PlayerId player, string teamId)
+        private void OnTeamChanged(PlayerId player, TeamRepresentation team)
         {
-            
-            _LocalTeam = 
+            if (player.IsSelf)
+            {
+                _LocalTeam = team.Team;
+                Notify($"{team.DisplayName} joined.", "");
+            }
             // TODO Implement UI changes
         }
 
@@ -384,27 +406,42 @@ namespace Fusion5vs5Gamemode
             // TODO Implement UI changes
         }
 
+        private void OnTeamWonRound(TeamRepresentation team)
+        {
+            // TODO Implement UI changes
+            Notify("Round over.", $"Team {team.DisplayName} wins.");
+        }
+        
+        private void OnTeamWonGame(TeamRepresentation team)
+        {
+            Notify("Game over.", $"Team {team.DisplayName} wins.");
+        }
+        
+        private TeamRepresentation GetTeamRepresentation(Fusion5vs5GamemodeTeams team)
+        {
+            return new TeamRepresentation
+                { Team = team, DisplayName = GetTeamDisplayName(team) };
+        }
+
+        private Fusion5vs5GamemodeTeams GetTeamFromValue(string value)
+        {
+            return (Fusion5vs5GamemodeTeams)Enum.Parse(typeof(Fusion5vs5Gamemode), value);
+        }
+        
+        private string GetTeamNameKey(Fusion5vs5GamemodeTeams team)
+        {
+            return $"{Commons.Metadata.TeamNameKey}.{team.ToString()}";
+        }
+        
+        private string GetTeamDisplayName(Fusion5vs5GamemodeTeams team)
+        {
+            Metadata.TryGetValue(GetTeamNameKey(team), out string displayName);
+            return displayName;
+        }
+        
         private void OnRoundNumberChanged(int newScore)
         {
             // TODO Implement UI changes
-        }
-
-        private void RequestToServer(string request)
-        {
-            if (NetworkInfo.HasServer)
-            {
-                using (var writer = FusionWriter.Create())
-                {
-                    using (var data = Fusion5vs5ClientRequest.Create(request))
-                    {
-                        writer.Write(data);
-                        using (var message = FusionMessage.ModuleCreate<Fusion5vs5ClientRequestHandler>(writer))
-                        {
-                            MessageSender.SendToServer(NetworkChannel.Reliable, message);
-                        }
-                    }
-                }
-            }
         }
 
         private void RevivePlayer(PlayerId player, Fusion5vs5GamemodeTeams team)
@@ -417,7 +454,7 @@ namespace Fusion5vs5Gamemode
             // TODO simply spawn ragdoll where the player avatar is without actually killing player
             SetSpectator(player);
         }
-        
+
         private void RespawnPlayer(PlayerId player, Fusion5vs5GamemodeTeams team)
         {
             // TODO RevivePlayer would call this. RevivePlayer will first get the player out of spectator mode
@@ -439,7 +476,25 @@ namespace Fusion5vs5Gamemode
                 _DefendingTeamSelection.SetName(string.Format(_TEAM_TEMPLATE, name));
             }
         }
-
+        
+        private void RequestToServer(string request)
+        {
+            if (NetworkInfo.HasServer)
+            {
+                using (var writer = FusionWriter.Create())
+                {
+                    using (var data = Fusion5vs5ClientRequest.Create(request))
+                    {
+                        writer.Write(data);
+                        using (var message = FusionMessage.ModuleCreate<Fusion5vs5ClientRequestHandler>(writer))
+                        {
+                            MessageSender.SendToServer(NetworkChannel.Reliable, message);
+                        }
+                    }
+                }
+            }
+        }
+        
         private void Notify(string header, string body)
         {
             FusionNotification notif = new FusionNotification()

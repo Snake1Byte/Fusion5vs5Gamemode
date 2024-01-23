@@ -10,7 +10,7 @@ namespace Fusion5vs5Gamemode.SDK
 #if MELONLOADER
     [RegisterTypeInIl2Cpp]
 #else
-    [AddComponentMenu("BONELAB Fusion/UltEvents/5vs5 Gamemode/5vs5 Invoke Ult Event")]
+    [AddComponentMenu("Fusion 5vs5 Gamemode/5vs5 Invoke Ult Event")]
     [DisallowMultipleComponent]
     [RequireComponent(typeof(UltEventHolder))]
 #endif
@@ -35,15 +35,17 @@ namespace Fusion5vs5Gamemode.SDK
             MatchEndPhaseStarted            // Triggered whenever a team's score is maxed out, which means the team won. Similarly to the MatchHalfPhase, players get locked in place and have a couple of seconds to talk to the enemy team over microphone before the game mode ends.
         }
 
-        public string CounterTerroristTeamJoinedValue { get; set; }         // Returns the name of the player that joined the Counter Terrorist team
-        public string TerroristTeamJoinedValue { get; set; }                // Returns the name of the player that joined tje Terrorist team
-        public int CounterTerroristTeamScoredValue { get; set; }            // Returns the new total score for the Counter Terrorist Team
-        public int TerroristTeamScoredValue { get; set; }                   // Returns the new total score for the Terrorist Team
-        public int NewRoundStartedValue { get; set; }                       // Returns the new round number based on the total number of rounds played so far. The round number is calculated by adding one to the count of completed rounds
-        public string PlayerKilledAnotherPlayerValueKiller { get; set; }    // Returns the name of the player that killed the other player. The other player's name can be found in PlayerKilledAnotherPlayerValueKilled
-        public string PlayerKilledAnotherPlayerValueKilled { get; set; }    // Returns the name of the player that got killed by PlayerKilledAnotherPlayerValueKiller
-        public string PlayerSuicideValue { get; set; }                      // Returns the name of the player that killed themself
-
+        public string CounterTerroristTeamJoinedValue { get; set; }         // Holds the name of the player that joined the Counter Terrorist team. Gets updated right before the CounterTerroristTeamJoined event gets called. 
+        public string TerroristTeamJoinedValue { get; set; }                // Holds the name of the player that joined tje Terrorist team. Gets updated right before the TerroristTeamJoined event gets called.
+        public int CounterTerroristTeamScoredValue { get; set; }            // Holds the new total score for the Counter Terrorist Team. Gets updated right before the CounterTerroristTeamScored event gets called.
+        public int TerroristTeamScoredValue { get; set; }                   // Holds the new total score for the Terrorist Team. Gets updated right before the TerroristTeamScored event gets called.
+        public bool WasLocalTeam { get; set; }                              // This value gets updated alongside CounterTerroristTeamScoredValue or TerroristTeamScoredValue to indicate whether the local player is part of the winning team. 
+        public int NewRoundStartedValue { get; set; }                       // Holds the new round number based on the total number of rounds played so far. The round number is calculated by adding one to the count of completed rounds
+        public string PlayerKilledAnotherPlayerValueKiller { get; set; }    // Holds the name of the player that killed the other player. The other player's name can be found in PlayerKilledAnotherPlayerValueKilled. Gets updated right before the PlayerKilledAnotherPlayer event gets called.
+        public string PlayerKilledAnotherPlayerValueKilled { get; set; }    // Holds the name of the player that got killed by PlayerKilledAnotherPlayerValueKiller. Gets updated right before the PlayerKilledAnotherPlayer event gets called.
+        public string PlayerSuicideValue { get; set; }                      // Holds the name of the player that killed themself. Gets updated right before the PlayerSuicide event gets called.
+        public bool WasLocalPlayer { get; set; }                            // This value gets updated alongside PlayerKilledAnotherPlayerValueKilled and PlayerSuicideValue to indicate whether the player that died was the local player, aka the player that plays the game on the local machine
+        
 #if MELONLOADER
 
         public Invoke5vs5UltEvent(IntPtr intPtr) : base(intPtr)

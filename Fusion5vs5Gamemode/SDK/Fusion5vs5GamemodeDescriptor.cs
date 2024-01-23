@@ -17,7 +17,7 @@ namespace Fusion5vs5Gamemode.SDK
 #if MELONLOADER
     [RegisterTypeInIl2Cpp]
 #else
-    [AddComponentMenu("BONELAB Fusion/Gamemodes/5vs5 Gamemode/Fusion5vs5GamemodeDescriptor")]
+    [AddComponentMenu("Fusion 5vs5 Gamemode/Fusion5vs5GamemodeDescriptor")]
     [DisallowMultipleComponent]
 #endif
     public class Fusion5vs5GamemodeDescriptor : FusionMarrowBehaviour
@@ -51,10 +51,8 @@ namespace Fusion5vs5Gamemode.SDK
 
 #else
         public override string Comment =>
-            "A proxy script for triggering and configuring Team Deathmatch in your map.\n" +
-            "You can use UltEvents or UnityEvents to trigger these functions. (ex. LifeCycleEvent that calls SetRoundLength).\n" +
-            "Most settings can be configured, such as round length, team names, logos, etc.\n" +
-            "The gamemode can also be started and stopped from here.";
+            "A script mandatory for making your map compatible with Fusion5vs5Gamemode. This script it required to start the gaemmode on this map.\n" +
+            "The Fusion5vs5Gamemode also has events that can trigger your custom UltEvents. To be able to listen to these events, add the \"Invoke5vs5UltEvent\" script to a GameObject."
 #endif
     }
     

@@ -163,7 +163,7 @@ namespace Fusion5vs5Gamemode
             }
         }
 
-        public void ClientRequested(string request)
+        public void OnClientRequested(string request)
         {
             if (request.StartsWith(ClientRequest.ChangeTeams))
             {
@@ -173,7 +173,28 @@ namespace Fusion5vs5Gamemode
                 TeamChangeRequested(player, team);
             }
         }
+        
+        private void OnTimeElapsed()
+        {
+            if (NetworkInfo.IsServer)
+            {
+                if (_State == GameStates.MatchEndPhase)
+                {
+                    Operations.InvokeTrigger(Events.Fusion5vs5Over);
+                    return;
+                }
 
+                if (_State == GameStates.PlayPhase)
+                {
+                    // defending team wins due to time running out
+                    IncrementTeamScore(DefendingTeam);
+                    Operations.InvokeTrigger($"{Events.TeamWonRound}.{DefendingTeam.TeamName}");
+                }
+
+                NextState();
+            }
+        }
+        
         // Team
 
         public void TeamChangeRequested(PlayerId player, Team selectedTeam)
@@ -230,7 +251,7 @@ namespace Fusion5vs5Gamemode
         {
             return TerroristTeam.TeamName.Equals(value) ? TerroristTeam : CounterTerroristTeam;
         }
-
+        
         private void SetTeamName(Team team, string teamName)
         {
             Operations.SetMetadata(GetTeamNameKey(team), teamName);
@@ -252,6 +273,11 @@ namespace Fusion5vs5Gamemode
             string teamScore = Operations.GetMetadata(GetTeamScoreKey(team));
             return int.Parse(teamScore);
         }
+        
+        private string GetTeamNameKey(Team team)
+        {
+            return $"{Metadata.TeamNameKey}.{team?.TeamName}";
+        }
 
         // All dead, all dead...
         private void DetermineTeamWon(PlayerId killed)
@@ -267,6 +293,7 @@ namespace Fusion5vs5Gamemode
 
             Team winnerTeam = losingTeam.Equals(CounterTerroristTeam) ? TerroristTeam : CounterTerroristTeam;
             IncrementTeamScore(winnerTeam);
+            Operations.InvokeTrigger($"{Events.TeamWonRound}.{winnerTeam.TeamName}");
             NextState();
         }
 
@@ -354,28 +381,8 @@ namespace Fusion5vs5Gamemode
         {
             _GameTimer = new Timer();
             _GameTimer.AutoReset = false;
-            _GameTimer.Elapsed += (sender, args) => TimeElapsed();
+            _GameTimer.Elapsed += (sender, args) => OnTimeElapsed();
             NextState();
-        }
-
-        private void TimeElapsed()
-        {
-            if (NetworkInfo.IsServer)
-            {
-                if (_State == GameStates.MatchEndPhase)
-                {
-                    Operations.InvokeTrigger(Events.Fusion5vs5Over);
-                    return;
-                }
-
-                if (_State == GameStates.PlayPhase)
-                {
-                    // defending team wins due to time running out
-                    IncrementTeamScore(DefendingTeam);
-                }
-
-                NextState();
-            }
         }
 
         // When calling NextState() from anywhere but the timer's Elapsed event, call this as the last thing, after changing scores, round numbers, etc.
@@ -478,6 +485,19 @@ namespace Fusion5vs5Gamemode
                 case GameStates.MatchHalfPhase:
                     break;
                 case GameStates.MatchEndPhase:
+                    int tScore = GetTeamScore(TerroristTeam);
+                    int cScore = GetTeamScore(CounterTerroristTeam);
+                    if (tScore == cScore)
+                    {
+                        Operations.InvokeTrigger(Events.GameTie);
+                    } else if (tScore > cScore)
+                    {
+                        Operations.InvokeTrigger($"{Events.TeamWonGame}.{TerroristTeam.TeamName}");
+                    }
+                    else
+                    {
+                        Operations.InvokeTrigger($"{Events.TeamWonGame}.{CounterTerroristTeam.TeamName}");
+                    }
                     break;
             }
         }
