@@ -8,24 +8,23 @@ using LabFusion.SDK.Gamemodes;
 using LabFusion.Senders;
 using LabFusion.Utilities;
 using MelonLoader;
+using SLZ.Bonelab;
 using static Fusion5vs5Gamemode.Commons;
-using CommonBarcodes = BoneLib.CommonBarcodes;
-using Random = UnityEngine.Random;
 
-namespace Fusion5vs5Gamemode
+namespace Fusion5vs5Gamemode.Server
 {
     public class Server : IDisposable
     {
         // Settings
         private IServerOperations Operations { get; }
-        public int MaxRounds { get; }
-        public bool EnableHalftime { get; }
-        public bool EnableLateJoining { get; }
-        public bool AllowAvatarChanging { get; }
+        private int MaxRounds { get; }
+        private bool EnableHalftime { get; }
+        private bool EnableLateJoining { get; }
+        private bool AllowAvatarChanging { get; }
 
         // Teams
-        public string CounterTerroristTeamName { get; private set; } = "Sabrelake";
-        public string TerroristTeamName { get; private set; } = "Lava Gang";
+        private string CounterTerroristTeamName { get; set; } = "Sabrelake";
+        private string TerroristTeamName { get; set; } = "Lava Gang";
         private Team CounterTerroristTeam { get; }
         private Team TerroristTeam { get; }
 
@@ -37,20 +36,22 @@ namespace Fusion5vs5Gamemode
 
         // States
         private GameStates _State = GameStates.Unknown;
-        public GameStates State => _State;
+        private GameStates State => _State;
 
         private Timer _GameTimer;
 
         //private int _TimeElapsed = 0;
-        public Dictionary<GameStates, int> TimeLimits { get; }
+        private Dictionary<GameStates, int> TimeLimits { get; }
 
-        private Dictionary<PlayerId, PlayerStates> playerStatesDict;
+        private Dictionary<PlayerId, PlayerStates> _PlayerStatesDict;
 
-        public Server(IServerOperations operations, Fusion5vs5GamemodeTeams defendingTeam, int maxRounds,
+        public Server(IServerOperations operations, Dictionary<GameStates, int> timeLimits,
+            Fusion5vs5GamemodeTeams defendingTeam, int maxRounds,
             bool enableHalfTime, bool enableLateJoining,
             bool allowAvatarChanging)
         {
-            Log(operations, defendingTeam, maxRounds, enableHalfTime, enableLateJoining, allowAvatarChanging);
+            Log(operations, timeLimits, defendingTeam, maxRounds, enableHalfTime, enableLateJoining,
+                allowAvatarChanging);
             Operations = operations;
 
             MaxRounds = maxRounds;
@@ -71,15 +72,8 @@ namespace Fusion5vs5Gamemode
             _Teams[1] = TerroristTeam;
             DefendingTeam = defendingTeam == Fusion5vs5GamemodeTeams.Terrorists ? TerroristTeam : CounterTerroristTeam;
 
-            playerStatesDict = new Dictionary<PlayerId, PlayerStates>();
-
-            TimeLimits = new Dictionary<GameStates, int>();
-            TimeLimits.Add(GameStates.Warmup, 60);
-            TimeLimits.Add(GameStates.BuyPhase, 15);
-            TimeLimits.Add(GameStates.PlayPhase, 135);
-            TimeLimits.Add(GameStates.RoundEndPhase, 10);
-            TimeLimits.Add(GameStates.MatchHalfPhase, 15);
-            TimeLimits.Add(GameStates.MatchEndPhase, 30);
+            TimeLimits = timeLimits;
+            _PlayerStatesDict = new Dictionary<PlayerId, PlayerStates>();
         }
 
         // Callbacks
@@ -107,9 +101,9 @@ namespace Fusion5vs5Gamemode
                 InitializePlayer(player);
             }
 
-            StartStateMachine();
-
             Operations.InvokeTrigger(Events.Fusion5vs5Started);
+
+            StartStateMachine();
         }
 
         public void On5vs5Aborted()
@@ -136,8 +130,10 @@ namespace Fusion5vs5Gamemode
             Log(playerId);
             MelonLogger.Msg("5vs5 Mode: OnPlayerLeave Called.");
 
-            GetTeam(playerId).RemovePlayer(playerId);
-            playerStatesDict.Remove(playerId);
+            Team team = GetTeam(playerId);
+            team.RemovePlayer(playerId);
+            _PlayerStatesDict.Remove(playerId);
+            Operations.InvokeTrigger($"{Events.PlayerLeft}.{playerId.LongId}.{team.TeamName}");
         }
 
         private void OnPlayerAction(PlayerId playerId, PlayerActionType type, PlayerId otherPlayer)
@@ -180,28 +176,21 @@ namespace Fusion5vs5Gamemode
                 Team team = GetTeamFromValue(info[2]);
                 TeamChangeRequested(player, team);
             }
+            else if (request.StartsWith(ClientRequest.JoinSpectator))
+            {
+                string[] info = request.Split('.');
+                PlayerId player = GetPlayerFromValue(info[1]);
+                Team team = GetTeam(player);
+                team.RemovePlayer(player);
+                SetPlayerState(player, PlayerStates.Spectator);
+                Operations.InvokeTrigger($"{Events.PlayerSpectates}.{player?.LongId}");
+            }
         }
 
         private void OnTimeElapsed()
         {
             Log();
-            if (NetworkInfo.IsServer)
-            {
-                if (_State == GameStates.MatchEndPhase)
-                {
-                    Operations.InvokeTrigger(Events.Fusion5vs5Over);
-                    return;
-                }
-
-                if (_State == GameStates.PlayPhase)
-                {
-                    // defending team wins due to time running out
-                    IncrementTeamScore(DefendingTeam);
-                    Operations.InvokeTrigger($"{Events.TeamWonRound}.{DefendingTeam.TeamName}");
-                }
-
-                NextState();
-            }
+            NextState();
         }
 
         // Team
@@ -315,26 +304,45 @@ namespace Fusion5vs5Gamemode
             NextState();
         }
 
+        private void SwapTeams()
+        {
+            Log();
+            List<PlayerId> toTransfer = new List<PlayerId>(TerroristTeam.Players);
+            TerroristTeam.Players.Clear();
+            TerroristTeam.Players.AddRange(CounterTerroristTeam.Players);
+            CounterTerroristTeam.Players.Clear();
+            CounterTerroristTeam.Players.AddRange(toTransfer);
+
+            // Transfer points
+            int score = GetTeamScore(CounterTerroristTeam);
+            SetTeamScore(CounterTerroristTeam, GetTeamScore(TerroristTeam));
+            SetTeamScore(TerroristTeam, score);
+        }
+
         // Player
 
         private void InitializePlayer(PlayerId player)
         {
             Log(player);
 
-            playerStatesDict.Add(player, PlayerStates.Spectator);
+            ResetScore(player);
 
+            SetPlayerState(player, PlayerStates.Spectator);
+        }
+
+        private void ResetScore(PlayerId player)
+        {
+            Log(player);
             SetPlayerKills(player, 0);
             SetPlayerDeaths(player, 0);
             SetPlayerAssists(player, 0);
-
-            SetPlayerState(player, PlayerStates.Spectator);
         }
 
         private void PlayerKilled(PlayerId killer, PlayerId killed, object weapon)
         {
             Log(killer, killed, weapon);
-            SetPlayerKills(killer, GetPlayerKills(Operations.GetMetadata(), killer) + 1);
-            SetPlayerDeaths(killed, GetPlayerDeaths(Operations.GetMetadata(), killed) + 1);
+            SetPlayerKills(killer, GetPlayerKills(Operations.Metadata, killer) + 1);
+            SetPlayerDeaths(killed, GetPlayerDeaths(Operations.Metadata, killed) + 1);
             SetPlayerState(killed, PlayerStates.Dead);
 
             Operations.InvokeTrigger($"{Events.PlayerKilledPlayer}.{killer.LongId}.{killed.LongId}");
@@ -345,7 +353,7 @@ namespace Fusion5vs5Gamemode
         private void Suicide(PlayerId playerId, object weapon)
         {
             Log(playerId, weapon);
-            SetPlayerDeaths(playerId, GetPlayerDeaths(Operations.GetMetadata(), playerId) + 1);
+            SetPlayerDeaths(playerId, GetPlayerDeaths(Operations.Metadata, playerId) + 1);
             SetPlayerState(playerId, PlayerStates.Dead);
 
             Operations.InvokeTrigger($"{Events.PlayerKilledPlayer}.{playerId.LongId}");
@@ -381,14 +389,14 @@ namespace Fusion5vs5Gamemode
         private void SetPlayerState(PlayerId playerId, PlayerStates state)
         {
             Log(playerId, state);
-            playerStatesDict.Remove(playerId);
-            playerStatesDict.Add(playerId, state);
+            _PlayerStatesDict.Remove(playerId);
+            _PlayerStatesDict.Add(playerId, state);
         }
 
         private PlayerStates GetPlayerState(PlayerId player)
         {
             Log(player);
-            playerStatesDict.TryGetValue(player, out PlayerStates playerState);
+            _PlayerStatesDict.TryGetValue(player, out PlayerStates playerState);
             return playerState;
         }
 
@@ -471,7 +479,7 @@ namespace Fusion5vs5Gamemode
 
                 if (TimeLimits.TryGetValue(nextState, out int timeLimit))
                 {
-                    _GameTimer.Interval = timeLimit;
+                    _GameTimer.Interval = timeLimit * 1000;
                     _GameTimer.Start();
                 }
                 else
@@ -482,7 +490,6 @@ namespace Fusion5vs5Gamemode
                 _State = nextState;
 
                 OnStateChanged(_State);
-
                 Operations.InvokeTrigger($"{Events.NewGameState}.{nextState.ToString()}");
             }
         }
@@ -502,7 +509,7 @@ namespace Fusion5vs5Gamemode
                     {
                         foreach (var player in team.Players)
                         {
-                            bool ok = playerStatesDict.TryGetValue(player, out PlayerStates playerState);
+                            bool ok = _PlayerStatesDict.TryGetValue(player, out PlayerStates playerState);
                             if (ok)
                             {
                                 if (playerState == PlayerStates.Dead)
@@ -523,6 +530,7 @@ namespace Fusion5vs5Gamemode
                 case GameStates.RoundEndPhase:
                     break;
                 case GameStates.MatchHalfPhase:
+                    SwapTeams();
                     break;
                 case GameStates.MatchEndPhase:
                     int tScore = GetTeamScore(TerroristTeam);
@@ -552,24 +560,30 @@ namespace Fusion5vs5Gamemode
                 case GameStates.Unknown:
                     break;
                 case GameStates.Warmup:
+                    foreach (var player in PlayerIdManager.PlayerIds) 
+                        ResetScore(player);
                     break;
                 case GameStates.BuyPhase:
                     break;
                 case GameStates.PlayPhase:
+                    // defending team wins due to time running out
+                    IncrementTeamScore(DefendingTeam);
+                    Operations.InvokeTrigger($"{Events.TeamWonRound}.{DefendingTeam.TeamName}");
                     break;
                 case GameStates.RoundEndPhase:
                     break;
                 case GameStates.MatchHalfPhase:
                     break;
                 case GameStates.MatchEndPhase:
-                    break;
+                    Operations.InvokeTrigger(Events.Fusion5vs5Over);
+                    return;
             }
         }
 
         private void IncrementRoundNumber()
         {
             Log();
-            SetRoundNumber(GetRoundNumber(Operations.GetMetadata()) + 1);
+            SetRoundNumber(GetRoundNumber(Operations.Metadata) + 1);
         }
 
         private void SetRoundNumber(int i)
@@ -589,12 +603,13 @@ namespace Fusion5vs5Gamemode
         private bool IsTeamScoreMaxedOut()
         {
             Log();
-            int maxTeamScore = (int)((float)MaxRounds / 2) + 1;
+            int maxTeamScore = MaxRounds / 2 + 1;
 
             foreach (var team in _Teams)
             {
                 int score = GetTeamScore(team);
-                if (score >= maxTeamScore)
+                MelonLogger.Msg($"IsTeamScoreMaxedOut(): {team.TeamName}'s score = {score}");
+                if (score == maxTeamScore)
                 {
                     return true;
                 }

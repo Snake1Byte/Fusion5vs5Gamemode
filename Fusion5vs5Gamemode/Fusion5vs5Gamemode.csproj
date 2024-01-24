@@ -31,6 +31,11 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <PropertyGroup>
+    <PostBuildEvent>python "D:\Windows User\Documents\Python\a\shit.py" "C:\Users\Snek\source\repos\Fusion5vs5Gamemode\Fusion5vs5Gamemode\bin\Debug\Fusion5vs5Gamemode.dll" "C:\Program Files (x86)\Steam\steamapps\common\BONELAB\Mods"
+
+python "D:\Windows User\Documents\Python\a\shit.py" "C:\Users\Snek\source\repos\Fusion5vs5Gamemode\Fusion5vs5Gamemode\SDK" "H:\UnityProjectlamo\Fusion Marrow Integration Testing\Assets\Fusion5vs5Gamemode Marrow Integration"</PostBuildEvent>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="0Harmony">
       <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\BONELAB\MelonLoader\0Harmony.dll</HintPath>
@@ -48,7 +53,7 @@
       <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\BONELAB\MelonLoader\Managed\Il2Cppmscorlib.dll</HintPath>
     </Reference>
     <Reference Include="LabFusion">
-      <HintPath>D:\Shared Libraries\LabFusion.dll</HintPath>
+      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\BONELAB\Mods\LabFusion.dll</HintPath>
     </Reference>
     <Reference Include="MelonLoader">
       <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\BONELAB\MelonLoader\MelonLoader.dll</HintPath>
@@ -70,6 +75,7 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -108,8 +114,9 @@
     <Compile Include="SDK\Fusion5vs5GamemodeDescriptor.cs" />
     <Compile Include="SDK\Internal\Fusion5vs5GamemodeBehaviour.cs" />
     <Compile Include="SDK\Invoke5vs5UltEvent.cs" />
-    <Compile Include="Server.cs" />
-    <Compile Include="ServerOperations.cs" />
+    <Compile Include="ServerOperationsImpl.cs" />
+    <Compile Include="Server\IServerOperations.cs" />
+    <Compile Include="Server\Server.cs" />
     <Compile Include="TeamRepresentation.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Text;
+using System.Threading;
 using Fusion5vs5Gamemode.SDK;
 using LabFusion.Data;
 using LabFusion.Representation;
@@ -36,15 +37,18 @@ namespace Fusion5vs5Gamemode
             public const string TeamWonRound = "TeamWonRound";
             public const string TeamWonGame = "TeamWonGame";
             public const string GameTie = "GameTie";
-            public const string Fusion5vs5Started = "Fusion5vs5Loaded";
+            public const string Fusion5vs5Started = "Fusion5vs5Started";
             public const string Fusion5vs5Aborted = "Fusion5vs5Aborted";
-            public const string Fusion5vs5Over = "Game Over";
+            public const string Fusion5vs5Over = "Fusion5vs5Over";
             public const string NewGameState = "NewGameState";
+            public const string PlayerLeft = "PlayerLeft";
+            public const string PlayerSpectates = "PlayerSpectates";
         }
 
         public static class ClientRequest
         {
             public const string ChangeTeams = "ChangeTeams";
+            public const string JoinSpectator = "JoinSpectator";
             public const string Buy = "Buy";
         }
 
@@ -127,6 +131,7 @@ namespace Fusion5vs5Gamemode
         {
             builder.Append(custom);
         }
+
         public static void Log(params object[] parameters)
         {
             StackFrame frame = new StackFrame(1);
@@ -135,6 +140,11 @@ namespace Fusion5vs5Gamemode
             {
                 return;
             }
+
+            DateTime currentTime = DateTime.Now;
+            string formattedTime = $"[{currentTime:yyyy/MM/dd HH:mm:ss.fff}]";
+            builder.Append(formattedTime);
+            builder.Append("\t");
 
             builder.Append(method.DeclaringType.FullName + " ");
             int i = 0;
@@ -148,14 +158,30 @@ namespace Fusion5vs5Gamemode
                     {
                         builder.Append(", ");
                     }
+
                     if (parameters != null)
                     {
                         builder.Append(parameter);
                         builder.Append(" = ");
-                        builder.Append(parameters[i]);
+                        if (parameters[i] is string)
+                        {
+                            builder.Append("\"");
+                            builder.Append(parameters[i]);
+                            builder.Append("\"");
+                        }
+                        else if (parameters[i] is Team t)
+                        {
+                            builder.Append(t.TeamName);
+                        }
+                        else
+                        {
+                            builder.Append(parameters[i]);
+                        }
+
                         ++i;
                     }
                 }
+
                 builder.Append(")");
                 builder.Append("\n");
             }
@@ -165,10 +191,7 @@ namespace Fusion5vs5Gamemode
                 builder.Append("\n");
             }
 
-            if (builder.Length > 10000)
-            {
-                Dump();
-            }
+            Dump();
         }
 
         public static void Dump()

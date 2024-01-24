@@ -1,7 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Text;
+using System.Timers;
 using BoneLib.BoneMenu.Elements;
 using Fusion5vs5Gamemode.SDK;
+using Fusion5vs5Gamemode.Server;
 using LabFusion.Data;
 using LabFusion.Extensions;
 using LabFusion.Network;
@@ -16,7 +19,7 @@ using static Fusion5vs5Gamemode.Commons;
 
 namespace Fusion5vs5Gamemode
 {
-    public class Fusion5vs5Gamemode : Gamemode, IServerOperations
+    public class Fusion5vs5Gamemode : Gamemode
     {
         public override string GamemodeCategory => "Snake1Byte's Gamemodes";
 
@@ -44,21 +47,33 @@ namespace Fusion5vs5Gamemode
         public override bool MusicEnabled => _EnableMusic;
         private bool _EnableMusic = true;
 
+        // UI
+        private Timer _UITimer;
+        private int currentTimeLimit;
+        private int elapsedTime = 0;
+
         // Internal
         public static Fusion5vs5Gamemode Instance { get; private set; }
-        public Server Server { get; private set; }
+        public Server.Server Server { get; private set; }
         private Fusion5vs5GamemodeTeams _DefendingTeam;
         private Fusion5vs5GamemodeTeams _LocalTeam;
 
         private MenuCategory _Menu;
         private FunctionElement _DefendingTeamSelection;
         private FunctionElement _AttackingTeamSelection;
+        private FunctionElement _JoinSpectatorSelection;
         private IntElement _MaxRoundsSetting;
         private BoolElement _EnableHalfTimeSetting;
         private BoolElement _EnableLateJoiningSetting;
         private BoolElement _AllowAvatarChangingSetting;
 
-        private const string _TEAM_TEMPLATE = "Join {0}";
+        // Settings
+        public int MaxRounds { get; private set; } = 15;
+        public bool HalfTimeEnabled { get; private set; } = true;
+        public bool EnableLateJoining { get; private set; } = true;
+        public bool AllowAvatarChanging { get; private set; } = true;
+
+        public Dictionary<GameStates, int> TimeLimits { get; } = new Dictionary<GameStates, int>();
 
         public override void OnBoneMenuCreated(MenuCategory category)
         {
@@ -74,18 +89,34 @@ namespace Fusion5vs5Gamemode
             _AttackingTeamSelection =
                 _Menu.CreateFunctionElement("Join Attacking Team", Color.white, RequestJoinAttackers);
 
-            _MaxRoundsSetting = category.CreateIntElement("Maximum rounds", Color.white, 15, 1, 1, 1000000,
+            _JoinSpectatorSelection = _Menu.CreateFunctionElement("Join Spectators", Color.white, RequestJoinSpectator);
+
+            _MaxRoundsSetting = category.CreateIntElement("Maximum rounds", Color.white, MaxRounds, 1, 1, 1000000,
                 i =>
                 {
                     if (IsActive())
-                        _MaxRoundsSetting.SetValue(Server.MaxRounds);
+                        _MaxRoundsSetting.SetValue(MaxRounds);
+                    else
+                    {
+                        int maxRounds = _MaxRoundsSetting.GetValue();
+                        if (maxRounds % 2 == 1 && maxRounds > MaxRounds)
+                        {
+                            _MaxRoundsSetting.SetValue(maxRounds + 1);
+                        }
+                        else if (maxRounds % 2 == 1 && maxRounds < MaxRounds)
+                        {
+                            _MaxRoundsSetting.SetValue(maxRounds - 1);
+                        }
+
+                        MaxRounds = _MaxRoundsSetting.GetValue();
+                    }
                 });
 
-            _EnableHalfTimeSetting = category.CreateBoolElement("Enable Half-Time", Color.white, true, b =>
+            _EnableHalfTimeSetting = category.CreateBoolElement("Enable Half-Time", Color.white, HalfTimeEnabled, b =>
             {
                 if (IsActive())
                 {
-                    _EnableHalfTimeSetting.SetValue(Server.EnableHalftime);
+                    _EnableHalfTimeSetting.SetValue(HalfTimeEnabled);
                 }
                 else if (b)
                 {
@@ -95,6 +126,8 @@ namespace Fusion5vs5Gamemode
                     {
                         _MaxRoundsSetting.SetValue(maxRounds + 1);
                     }
+
+                    MaxRounds = _MaxRoundsSetting.GetValue();
                 }
                 else
                 {
@@ -103,17 +136,19 @@ namespace Fusion5vs5Gamemode
             });
 
             // TODO request changing these settings during a game to the server
-            _EnableLateJoiningSetting = category.CreateBoolElement("Enable late joining", Color.white, true, b =>
-            {
-                if (IsActive())
-                    _EnableLateJoiningSetting.SetValue(Server.EnableLateJoining);
-            });
+            _EnableLateJoiningSetting = category.CreateBoolElement("Enable late joining", Color.white,
+                EnableLateJoining, b =>
+                {
+                    if (IsActive())
+                        _EnableLateJoiningSetting.SetValue(EnableLateJoining);
+                });
 
-            _AllowAvatarChangingSetting = category.CreateBoolElement("Allow avatar changing", Color.white, true, b =>
-            {
-                if (IsActive())
-                    _AllowAvatarChangingSetting.SetValue(Server.AllowAvatarChanging);
-            });
+            _AllowAvatarChangingSetting = category.CreateBoolElement("Allow avatar changing", Color.white,
+                AllowAvatarChanging, b =>
+                {
+                    if (IsActive())
+                        _AllowAvatarChangingSetting.SetValue(AllowAvatarChanging);
+                });
 
             category.CreateBoolElement("Enable round music", Color.white, _EnableMusic, b => _EnableMusic = b);
 
@@ -122,6 +157,7 @@ namespace Fusion5vs5Gamemode
             // Only show these while the game is running, until I add a better way to switch teams
             category.Elements.RemoveInstance(_DefendingTeamSelection);
             category.Elements.RemoveInstance(_AttackingTeamSelection);
+            category.Elements.RemoveInstance(_JoinSpectatorSelection);
         }
 
         public override void OnGamemodeRegistered()
@@ -130,6 +166,13 @@ namespace Fusion5vs5Gamemode
             base.OnGamemodeRegistered();
             MelonLogger.Msg("5vs5 Mode: OnGameModeRegistered Called.");
             Instance = this;
+
+            TimeLimits.Add(GameStates.Warmup, 60);
+            TimeLimits.Add(GameStates.BuyPhase, 15);
+            TimeLimits.Add(GameStates.PlayPhase, 135);
+            TimeLimits.Add(GameStates.RoundEndPhase, 10);
+            TimeLimits.Add(GameStates.MatchHalfPhase, 15);
+            TimeLimits.Add(GameStates.MatchEndPhase, 30);
         }
 
         public override void OnGamemodeUnregistered()
@@ -148,7 +191,7 @@ namespace Fusion5vs5Gamemode
             Log();
             base.OnStartGamemode();
             MelonLogger.Msg("5vs5 Mode: OnStartGamemode Called.");
-
+            _Menu.Elements.Insert(0, _JoinSpectatorSelection);
             _Menu.Elements.Insert(0, _DefendingTeamSelection);
             _Menu.Elements.Insert(0, _AttackingTeamSelection);
             _Menu.Elements.RemoveInstance(_EnableHalfTimeSetting);
@@ -168,8 +211,15 @@ namespace Fusion5vs5Gamemode
                 return;
             }
 
+            _UITimer = new Timer();
+            _UITimer.AutoReset = true;
+            _UITimer.Interval = 1000;
+            _UITimer.Elapsed += (a, b) => UpdateUITimer();
+
 #pragma warning disable CS0472
-            _DefendingTeam = descriptor.DefendingTeam == null ? Fusion5vs5GamemodeTeams.CounterTerrorists : descriptor.DefendingTeam;
+            _DefendingTeam = descriptor.DefendingTeam == null
+                ? Fusion5vs5GamemodeTeams.CounterTerrorists
+                : descriptor.DefendingTeam;
 #pragma warning restore CS0472
             _PreventNewJoins = !_EnableLateJoiningSetting.GetValue();
             _DefaultAvatar = descriptor.DefaultAvatar == null
@@ -177,13 +227,14 @@ namespace Fusion5vs5Gamemode
                 : descriptor.DefaultAvatar._barcode.ToString();
             if (NetworkInfo.IsServer)
             {
-                Server = new Server(
-                    this,
+                Server = new Server.Server(
+                    new ServerOperationsImpl(this),
+                    TimeLimits,
                     _DefendingTeam,
-                    _MaxRoundsSetting.GetValue(),
-                    _EnableHalfTimeSetting.GetValue(),
-                    _PreventNewJoins,
-                    _AllowAvatarChangingSetting.GetValue()
+                    MaxRounds,
+                    HalfTimeEnabled,
+                    PreventNewJoins,
+                    AllowAvatarChanging
                 );
             }
 
@@ -255,6 +306,7 @@ namespace Fusion5vs5Gamemode
                 PlayerId killed = GetPlayerFromValue(_killed);
                 killer.TryGetDisplayName(out string killerName);
                 killed.TryGetDisplayName(out string killedName);
+                SetSpectator(killed);
                 SDKIntegration.InvokePlayerKilledAnotherPlayer(killerName, killedName, killed.IsSelf);
             }
             else if (eventName.StartsWith(Events.PlayerSuicide))
@@ -329,6 +381,22 @@ namespace Fusion5vs5Gamemode
                 GameStates newState = (GameStates)Enum.Parse(typeof(GameStates), _newState);
                 OnStateChanged(newState);
             }
+            else if (eventName.StartsWith(Events.PlayerLeft))
+            {
+                string _player = eventName.Split('.')[1];
+                string _team = eventName.Split('.')[2];
+                PlayerId player = GetPlayerFromValue(_player);
+                Fusion5vs5GamemodeTeams team = GetTeamFromValue(_team);
+
+                OnTeamRemoved(player, team);
+            }
+            else if (eventName.StartsWith(Events.PlayerSpectates))
+            {
+                string _player = eventName.Split('.')[1];
+                PlayerId player = GetPlayerFromValue(_player);
+
+                SetSpectator(player);
+            }
 
             UpdateDebugText(eventName);
         }
@@ -349,6 +417,11 @@ namespace Fusion5vs5Gamemode
         private void OnStateChanged(GameStates state)
         {
             MelonLogger.Msg($"New game state {state}.");
+
+            _UITimer.Stop();
+            elapsedTime = 0;
+            currentTimeLimit = TimeLimits[state];
+            _UITimer.Start();
 
             switch (state)
             {
@@ -383,8 +456,8 @@ namespace Fusion5vs5Gamemode
             Log();
             // TODO decide how to implement team switching
             Notify("Warmup begun", "Select a team from <UI component>");
-            
-            SDKIntegration.InvokeWarmupPhaseStarted();   
+
+            SDKIntegration.InvokeWarmupPhaseStarted();
         }
 
         private void StartBuyPhase()
@@ -392,13 +465,14 @@ namespace Fusion5vs5Gamemode
             Log();
             // TODO decide how to implement weapon buying
             Notify("Buy Phase", "Buy weapons from <UI component>");
-            
+
             SDKIntegration.InvokeBuyPhaseStarted();
         }
 
         private void StartPlayPhase()
         {
             Log();
+
             if (_LocalTeam == _DefendingTeam)
             {
                 // TODO change notification
@@ -408,14 +482,14 @@ namespace Fusion5vs5Gamemode
             {
                 Notify("Round start", "Do attacking team stuff...");
             }
-            
+
             SDKIntegration.InvokePlayPhaseStarted();
         }
 
         private void StartRoundEndPhase()
         {
             Log();
-            
+
             SDKIntegration.InvokeRoundEndPhaseStarted();
         }
 
@@ -426,14 +500,16 @@ namespace Fusion5vs5Gamemode
                 ? Fusion5vs5GamemodeTeams.CounterTerrorists
                 : Fusion5vs5GamemodeTeams.Terrorists;
             Notify("Switching sides", $"Switching to team {GetTeamDisplayName(_team)}.");
-            
+
+            SwapTeams();
+
             SDKIntegration.InvokeMatchHalfPhaseStarted();
         }
 
         private void StartMatchEndPhase()
         {
             Log();
-            
+
             SDKIntegration.InvokeMatchEndPhaseStarted();
         }
 
@@ -462,6 +538,14 @@ namespace Fusion5vs5Gamemode
             RequestToServer(request);
         }
 
+        private void RequestJoinSpectator()
+        {
+            Log();
+            PlayerId player = PlayerIdManager.LocalId;
+            string request = $"{ClientRequest.JoinSpectator}.{player?.LongId}";
+            RequestToServer(request);
+        }
+
         private void OnTeamChanged(PlayerId player, TeamRepresentation team)
         {
             Log(player, team);
@@ -482,6 +566,12 @@ namespace Fusion5vs5Gamemode
             {
                 SDKIntegration.InvokeTerroristTeamJoined(name, player.IsSelf);
             }
+        }
+
+        private void OnTeamRemoved(PlayerId player, Fusion5vs5GamemodeTeams team)
+        {
+            Log(player, team);
+            // TODO Implement UI changes
         }
 
         private void OnTeamNameChanged(TeamRepresentation rep)
@@ -513,6 +603,12 @@ namespace Fusion5vs5Gamemode
         {
             Log(team);
             Notify("Game over.", $"Team {team.DisplayName} wins.");
+        }
+
+        private void SwapTeams()
+        {
+            Log();
+            // TODO Implement UI changes
         }
 
         private TeamRepresentation GetTeamRepresentation(Fusion5vs5GamemodeTeams team)
@@ -568,19 +664,6 @@ namespace Fusion5vs5Gamemode
             // TODO change to spectator avatar, remove interactibility and visibility
         }
 
-        public void ChangeTeamName(bool attackers, string name)
-        {
-            Log(attackers, name);
-            if (attackers)
-            {
-                _AttackingTeamSelection.SetName(string.Format(_TEAM_TEMPLATE, name));
-            }
-            else
-            {
-                _DefendingTeamSelection.SetName(string.Format(_TEAM_TEMPLATE, name));
-            }
-        }
-
         private void RequestToServer(string request)
         {
             Log(request);
@@ -614,6 +697,11 @@ namespace Fusion5vs5Gamemode
             FusionNotifier.Send(notif);
         }
 
+        private void UpdateUITimer()
+        {
+            ++elapsedTime;
+        }
+
         private void UpdateDebugText()
         {
             if (_DebugText != null)
@@ -624,6 +712,7 @@ namespace Fusion5vs5Gamemode
                     _DebugText.transform.Find("PlayerListText").GetComponent<TextMeshProUGUI>();
 
                 StringBuilder sb = new StringBuilder();
+                sb.Append("Metadata:\n");
                 foreach (var kvPair in Metadata)
                 {
                     sb.Append(kvPair.Key + "\t\t");
@@ -633,6 +722,23 @@ namespace Fusion5vs5Gamemode
                 metadataText.text = sb.ToString();
 
                 sb = new StringBuilder();
+                sb.Append("Player List:");
+
+                int timeLeft = currentTimeLimit - elapsedTime;
+                sb.Append("\t");
+                if (timeLeft >= 0)
+                {
+                    int minutes = timeLeft / 60;
+                    int seconds = timeLeft - 60 * minutes;
+                    string time = $"{minutes}:{seconds:00}";
+                    sb.Append(time);
+                }
+                else
+                {
+                    sb.Append("0:00");
+                }
+
+                sb.Append("\n");
                 foreach (var playerId in PlayerIdManager.PlayerIds)
                 {
                     playerId.TryGetDisplayName(out string name);
@@ -649,33 +755,6 @@ namespace Fusion5vs5Gamemode
             TextMeshProUGUI eventTriggerText =
                 _DebugText.transform.Find("EventTriggerText").GetComponent<TextMeshProUGUI>();
             eventTriggerText.text = eventTriggerText.text + "\n" + eventTriggerName;
-        }
-
-        // IServerOperations Implementation
-
-        public bool SetMetadata(string key, string value)
-        {
-            Log(key, value);
-            return TrySetMetadata(key, value);
-        }
-
-        public new string GetMetadata(string key)
-        {
-            Log(key);
-            TryGetMetadata(key, out string value);
-            return value;
-        }
-
-        public FusionDictionary<string, string> GetMetadata()
-        {
-            Log();
-            return Metadata;
-        }
-
-        public bool InvokeTrigger(string value)
-        {
-            Log(value);
-            return TryInvokeTrigger(value);
         }
     }
 }
