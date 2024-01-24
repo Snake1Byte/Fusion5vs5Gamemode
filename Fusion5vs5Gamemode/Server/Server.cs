@@ -121,8 +121,6 @@ namespace Fusion5vs5Gamemode.Server
             MelonLogger.Msg("5vs5 Mode: OnPlayerJoin Called.");
 
             InitializePlayer(playerId);
-
-            playerId.TryGetDisplayName(out string name);
         }
 
         private void OnPlayerLeave(PlayerId playerId)

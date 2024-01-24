@@ -12,6 +12,7 @@ using LabFusion.Representation;
 using LabFusion.SDK.Gamemodes;
 using LabFusion.Utilities;
 using MelonLoader;
+using SLZ.Bonelab;
 using SLZ.Marrow.SceneStreaming;
 using TMPro;
 using UnityEngine;
@@ -248,6 +249,8 @@ namespace Fusion5vs5Gamemode
             base.OnStopGamemode();
             MelonLogger.Msg("5vs5 Mode: OnStopGamemode Called.");
 
+            UnFreeze();
+            
             if (NetworkInfo.IsServer && Server != null)
             {
                 Server.Dispose();
@@ -361,6 +364,7 @@ namespace Fusion5vs5Gamemode
             }
             else if (eventName.Equals(Events.GameTie))
             {
+                OnGameTie();
             }
             else if (eventName.Equals(Events.Fusion5vs5Started))
             {
@@ -460,7 +464,7 @@ namespace Fusion5vs5Gamemode
         {
             Log();
             // TODO decide how to implement team switching
-            Notify("Warmup begun", "Select a team from <UI component>");
+            Notify("Warmup begun", "Select a team from UI component");
 
             SDKIntegration.InvokeWarmupPhaseStarted();
         }
@@ -471,12 +475,16 @@ namespace Fusion5vs5Gamemode
             // TODO decide how to implement weapon buying
             Notify("Buy Phase", "Buy weapons from <UI component>");
 
+            Freeze();
+            
             SDKIntegration.InvokeBuyPhaseStarted();
         }
 
         private void StartPlayPhase()
         {
             Log();
+
+            UnFreeze();
 
             if (_LocalTeam == _DefendingTeam)
             {
@@ -501,12 +509,15 @@ namespace Fusion5vs5Gamemode
         private void StartMatchHalfPhase()
         {
             Log();
+
+            Freeze();
+            
             Fusion5vs5GamemodeTeams _team = _LocalTeam == Fusion5vs5GamemodeTeams.Terrorists
                 ? Fusion5vs5GamemodeTeams.CounterTerrorists
                 : Fusion5vs5GamemodeTeams.Terrorists;
             Notify("Switching sides", $"Switching to team {GetTeamDisplayName(_team)}.");
 
-            SwapTeams();
+            OnSwapTeams();
 
             SDKIntegration.InvokeMatchHalfPhaseStarted();
         }
@@ -514,6 +525,8 @@ namespace Fusion5vs5Gamemode
         private void StartMatchEndPhase()
         {
             Log();
+
+            Freeze();
 
             SDKIntegration.InvokeMatchEndPhaseStarted();
         }
@@ -608,9 +621,17 @@ namespace Fusion5vs5Gamemode
         {
             Log(team);
             Notify("Game over.", $"Team {team.DisplayName} wins.");
+            // TODO implement UI
+        }
+        
+        private void OnGameTie()
+        {
+            Log();
+            Notify("Game over.", "Game tied.");
+            // TODO implement UI
         }
 
-        private void SwapTeams()
+        private void OnSwapTeams()
         {
             Log();
             // TODO Implement UI changes
@@ -667,6 +688,16 @@ namespace Fusion5vs5Gamemode
         {
             Log(player);
             // TODO change to spectator avatar, remove interactibility and visibility
+        }
+        
+        private void Freeze()
+        {
+            // TODO Either set their agility avatar stat to 0 or use Harmony Patching to prevent player from walking
+        }
+        
+        private void UnFreeze()
+        {
+            // TODO Undo all changes from Freeze()
         }
 
         private void Notify(string header, string body)
