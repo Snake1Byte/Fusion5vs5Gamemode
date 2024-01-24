@@ -29,6 +29,9 @@ namespace Fusion5vs5Gamemode
         public override bool DisableManualUnragdoll => true;
         public override bool AutoStopOnSceneLoad => false;
 
+        // Avatars
+        private string _DefaultAvatar = BoneLib.CommonBarcodes.Avatars.FordBL;
+
         // Debug
         public override bool DisableDevTools => !_Debug;
         public override bool DisableSpawnGun => !_Debug;
@@ -59,6 +62,7 @@ namespace Fusion5vs5Gamemode
 
         public override void OnBoneMenuCreated(MenuCategory category)
         {
+            Log(category);
             base.OnBoneMenuCreated(category);
 
             _Menu = category;
@@ -122,6 +126,7 @@ namespace Fusion5vs5Gamemode
 
         public override void OnGamemodeRegistered()
         {
+            Log();
             base.OnGamemodeRegistered();
             MelonLogger.Msg("5vs5 Mode: OnGameModeRegistered Called.");
             Instance = this;
@@ -129,6 +134,7 @@ namespace Fusion5vs5Gamemode
 
         public override void OnGamemodeUnregistered()
         {
+            Log();
             base.OnGamemodeUnregistered();
             MelonLogger.Msg("5vs5 Mode: OnGameModeUnRegistered Called.");
             if (Instance == this)
@@ -139,12 +145,36 @@ namespace Fusion5vs5Gamemode
 
         protected override void OnStartGamemode()
         {
+            Log();
             base.OnStartGamemode();
             MelonLogger.Msg("5vs5 Mode: OnStartGamemode Called.");
 
-            // TODO Import SDK descriptor
+            _Menu.Elements.Insert(0, _DefendingTeamSelection);
+            _Menu.Elements.Insert(0, _AttackingTeamSelection);
+            _Menu.Elements.RemoveInstance(_EnableHalfTimeSetting);
+            _Menu.Elements.RemoveInstance(_MaxRoundsSetting);
 
+            Fusion5vs5GamemodeDescriptor descriptor = null;
+            foreach (var firstComponent in Fusion5vs5GamemodeDescriptor.Cache.Components)
+            {
+                descriptor = firstComponent;
+                break;
+            }
+
+            if (descriptor == null)
+            {
+                Notify("Map does not support game mode!", "The current map does not support the Fusion5vs5Gamemode.");
+                StopGamemode();
+                return;
+            }
+
+#pragma warning disable CS0472
+            _DefendingTeam = descriptor.DefendingTeam == null ? Fusion5vs5GamemodeTeams.CounterTerrorists : descriptor.DefendingTeam;
+#pragma warning restore CS0472
             _PreventNewJoins = !_EnableLateJoiningSetting.GetValue();
+            _DefaultAvatar = descriptor.DefaultAvatar == null
+                ? _DefaultAvatar
+                : descriptor.DefaultAvatar._barcode.ToString();
             if (NetworkInfo.IsServer)
             {
                 Server = new Server(
@@ -157,21 +187,17 @@ namespace Fusion5vs5Gamemode
                 );
             }
 
-            _Menu.Elements.Insert(0, _DefendingTeamSelection);
-            _Menu.Elements.Insert(0, _AttackingTeamSelection);
-            _Menu.Elements.RemoveInstance(_EnableHalfTimeSetting);
-            _Menu.Elements.RemoveInstance(_MaxRoundsSetting);
-
             FusionPlayer.SetPlayerVitality(1.0f);
             SceneStreamer.Reload();
         }
 
         protected override void OnStopGamemode()
         {
+            Log();
             base.OnStopGamemode();
             MelonLogger.Msg("5vs5 Mode: OnStopGamemode Called.");
 
-            if (NetworkInfo.IsServer)
+            if (NetworkInfo.IsServer && Server != null)
             {
                 Server.Dispose();
             }
@@ -183,10 +209,12 @@ namespace Fusion5vs5Gamemode
 
             FusionPlayer.ClearPlayerVitality();
             _DebugText = null;
+            Dump();
         }
 
         protected override void OnMetadataChanged(string key, string value)
         {
+            Log(key, value);
             base.OnMetadataChanged(key, value);
 
             if (_Debug)
@@ -218,7 +246,25 @@ namespace Fusion5vs5Gamemode
 
         protected override void OnEventTriggered(string eventName)
         {
-            if (eventName.StartsWith(Events.KillPlayer))
+            Log(eventName);
+            if (eventName.StartsWith(Events.PlayerKilledPlayer))
+            {
+                string _killer = eventName.Split('.')[1];
+                string _killed = eventName.Split('.')[2];
+                PlayerId killer = GetPlayerFromValue(_killer);
+                PlayerId killed = GetPlayerFromValue(_killed);
+                killer.TryGetDisplayName(out string killerName);
+                killed.TryGetDisplayName(out string killedName);
+                SDKIntegration.InvokePlayerKilledAnotherPlayer(killerName, killedName, killed.IsSelf);
+            }
+            else if (eventName.StartsWith(Events.PlayerSuicide))
+            {
+                string _player = eventName.Split('.')[1];
+                PlayerId player = GetPlayerFromValue(_player);
+                player.TryGetDisplayName(out string playerName);
+                SDKIntegration.InvokePlayerSuicide(playerName, player.IsSelf);
+            }
+            else if (eventName.StartsWith(Events.KillPlayer))
             {
                 string _player = eventName.Split('.')[1];
                 PlayerId player = GetPlayerFromValue(_player);
@@ -249,15 +295,15 @@ namespace Fusion5vs5Gamemode
                 Fusion5vs5GamemodeTeams _team = GetTeamFromValue(eventName.Split('.')[1]);
                 TeamRepresentation team = GetTeamRepresentation(_team);
                 OnTeamWonRound(team);
-            } else if (eventName.StartsWith(Events.TeamWonGame))
+            }
+            else if (eventName.StartsWith(Events.TeamWonGame))
             {
                 Fusion5vs5GamemodeTeams _team = GetTeamFromValue(eventName.Split('.')[1]);
                 TeamRepresentation team = GetTeamRepresentation(_team);
                 OnTeamWonGame(team);
-                
-            } else if (eventName.Equals(Events.GameTie))
+            }
+            else if (eventName.Equals(Events.GameTie))
             {
-                
             }
             else if (eventName.Equals(Events.Fusion5vs5Started))
             {
@@ -283,6 +329,8 @@ namespace Fusion5vs5Gamemode
                 GameStates newState = (GameStates)Enum.Parse(typeof(GameStates), _newState);
                 OnStateChanged(newState);
             }
+
+            UpdateDebugText(eventName);
         }
 
         protected override void OnUpdate()
@@ -326,22 +374,31 @@ namespace Fusion5vs5Gamemode
                     MelonLogger.Warning($"Could not execute the state {state}!");
                     break;
             }
+
+            Log(state);
         }
 
         private void StartWarmupPhase()
         {
+            Log();
             // TODO decide how to implement team switching
             Notify("Warmup begun", "Select a team from <UI component>");
+            
+            SDKIntegration.InvokeWarmupPhaseStarted();   
         }
 
         private void StartBuyPhase()
         {
+            Log();
             // TODO decide how to implement weapon buying
             Notify("Buy Phase", "Buy weapons from <UI component>");
+            
+            SDKIntegration.InvokeBuyPhaseStarted();
         }
 
         private void StartPlayPhase()
         {
+            Log();
             if (_LocalTeam == _DefendingTeam)
             {
                 // TODO change notification
@@ -351,32 +408,45 @@ namespace Fusion5vs5Gamemode
             {
                 Notify("Round start", "Do attacking team stuff...");
             }
+            
+            SDKIntegration.InvokePlayPhaseStarted();
         }
 
         private void StartRoundEndPhase()
         {
+            Log();
+            
+            SDKIntegration.InvokeRoundEndPhaseStarted();
         }
 
         private void StartMatchHalfPhase()
         {
+            Log();
             Fusion5vs5GamemodeTeams _team = _LocalTeam == Fusion5vs5GamemodeTeams.Terrorists
                 ? Fusion5vs5GamemodeTeams.CounterTerrorists
                 : Fusion5vs5GamemodeTeams.Terrorists;
             Notify("Switching sides", $"Switching to team {GetTeamDisplayName(_team)}.");
+            
+            SDKIntegration.InvokeMatchHalfPhaseStarted();
         }
 
         private void StartMatchEndPhase()
         {
+            Log();
+            
+            SDKIntegration.InvokeMatchEndPhaseStarted();
         }
 
         private void RequestJoinDefenders()
         {
+            Log();
             Fusion5vs5GamemodeTeams team = _DefendingTeam;
             RequestJoinTeam(team);
         }
 
         private void RequestJoinAttackers()
         {
+            Log();
             Fusion5vs5GamemodeTeams team =
                 _DefendingTeam == Fusion5vs5GamemodeTeams.Terrorists
                     ? Fusion5vs5GamemodeTeams.CounterTerrorists
@@ -386,6 +456,7 @@ namespace Fusion5vs5Gamemode
 
         private void RequestJoinTeam(Fusion5vs5GamemodeTeams team)
         {
+            Log(team);
             PlayerId player = PlayerIdManager.LocalId;
             string request = $"{ClientRequest.ChangeTeams}.{player?.LongId}.{team.ToString()}";
             RequestToServer(request);
@@ -393,80 +464,113 @@ namespace Fusion5vs5Gamemode
 
         private void OnTeamChanged(PlayerId player, TeamRepresentation team)
         {
+            Log(player, team);
             if (player.IsSelf)
             {
                 _LocalTeam = team.Team;
-                Notify($"{team.DisplayName} joined.", "");
+                Notify($"Joined {team.DisplayName}", "");
             }
+
             // TODO Implement UI changes
+
+            player.TryGetDisplayName(out string name);
+            if (team.Team == Fusion5vs5GamemodeTeams.CounterTerrorists)
+            {
+                SDKIntegration.InvokeCounterTerroristTeamJoined(name, player.IsSelf);
+            }
+            else
+            {
+                SDKIntegration.InvokeTerroristTeamJoined(name, player.IsSelf);
+            }
         }
 
         private void OnTeamNameChanged(TeamRepresentation rep)
         {
+            Log(rep);
             // TODO Implement UI changes
         }
 
         private void OnTeamWonRound(TeamRepresentation team)
         {
+            Log(team);
             // TODO Implement UI changes
             Notify("Round over.", $"Team {team.DisplayName} wins.");
+
+            Metadata.TryGetValue(GetTeamScoreKey(team.Team), out string value);
+            int totalScore = int.Parse(value);
+            if (team.Team == Fusion5vs5GamemodeTeams.CounterTerrorists)
+            {
+                SDKIntegration.InvokeCounterTerroristTeamScored(totalScore,
+                    _LocalTeam == Fusion5vs5GamemodeTeams.CounterTerrorists);
+            }
+            else
+            {
+                SDKIntegration.InvokeTerroristTeamScored(totalScore, _LocalTeam == Fusion5vs5GamemodeTeams.Terrorists);
+            }
         }
-        
+
         private void OnTeamWonGame(TeamRepresentation team)
         {
+            Log(team);
             Notify("Game over.", $"Team {team.DisplayName} wins.");
         }
-        
+
         private TeamRepresentation GetTeamRepresentation(Fusion5vs5GamemodeTeams team)
         {
+            Log(team);
             return new TeamRepresentation
                 { Team = team, DisplayName = GetTeamDisplayName(team) };
         }
 
-        private Fusion5vs5GamemodeTeams GetTeamFromValue(string value)
-        {
-            return (Fusion5vs5GamemodeTeams)Enum.Parse(typeof(Fusion5vs5Gamemode), value);
-        }
-        
         private string GetTeamNameKey(Fusion5vs5GamemodeTeams team)
         {
+            Log(team);
             return $"{Commons.Metadata.TeamNameKey}.{team.ToString()}";
         }
-        
+
         private string GetTeamDisplayName(Fusion5vs5GamemodeTeams team)
         {
+            Log(team);
             Metadata.TryGetValue(GetTeamNameKey(team), out string displayName);
             return displayName;
         }
-        
+
         private void OnRoundNumberChanged(int newScore)
         {
+            Log(newScore);
             // TODO Implement UI changes
+
+            SDKIntegration.InvokeNewRoundStarted(newScore);
         }
 
         private void RevivePlayer(PlayerId player, Fusion5vs5GamemodeTeams team)
         {
+            Log(player, team);
             // TODO change avatar from spectator avatar, place player in spawn, give back interactability and visibility
         }
 
         private void KillPlayer(PlayerId player)
         {
+            Log(player);
             // TODO simply spawn ragdoll where the player avatar is without actually killing player
             SetSpectator(player);
         }
 
         private void RespawnPlayer(PlayerId player, Fusion5vs5GamemodeTeams team)
         {
+            Log(player, team);
             // TODO RevivePlayer would call this. RevivePlayer will first get the player out of spectator mode
         }
 
         private void SetSpectator(PlayerId player)
         {
+            Log(player);
             // TODO change to spectator avatar, remove interactibility and visibility
         }
 
         public void ChangeTeamName(bool attackers, string name)
         {
+            Log(attackers, name);
             if (attackers)
             {
                 _AttackingTeamSelection.SetName(string.Format(_TEAM_TEMPLATE, name));
@@ -476,9 +580,10 @@ namespace Fusion5vs5Gamemode
                 _DefendingTeamSelection.SetName(string.Format(_TEAM_TEMPLATE, name));
             }
         }
-        
+
         private void RequestToServer(string request)
         {
+            Log(request);
             if (NetworkInfo.HasServer)
             {
                 using (var writer = FusionWriter.Create())
@@ -494,9 +599,10 @@ namespace Fusion5vs5Gamemode
                 }
             }
         }
-        
+
         private void Notify(string header, string body)
         {
+            Log(header, body);
             FusionNotification notif = new FusionNotification()
             {
                 title = header,
@@ -538,26 +644,37 @@ namespace Fusion5vs5Gamemode
             }
         }
 
+        private void UpdateDebugText(string eventTriggerName)
+        {
+            TextMeshProUGUI eventTriggerText =
+                _DebugText.transform.Find("EventTriggerText").GetComponent<TextMeshProUGUI>();
+            eventTriggerText.text = eventTriggerText.text + "\n" + eventTriggerName;
+        }
+
         // IServerOperations Implementation
 
         public bool SetMetadata(string key, string value)
         {
+            Log(key, value);
             return TrySetMetadata(key, value);
         }
 
-        public string GetMetadata(string key)
+        public new string GetMetadata(string key)
         {
+            Log(key);
             TryGetMetadata(key, out string value);
             return value;
         }
 
         public FusionDictionary<string, string> GetMetadata()
         {
+            Log();
             return Metadata;
         }
 
         public bool InvokeTrigger(string value)
         {
+            Log(value);
             return TryInvokeTrigger(value);
         }
     }

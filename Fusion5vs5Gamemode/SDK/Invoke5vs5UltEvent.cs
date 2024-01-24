@@ -1,20 +1,23 @@
 ﻿using System;
+using Fusion5vs5Gamemode.SDK.Internal;
 using LabFusion.MarrowIntegration;
-using LabFusion.Utilities;
-using MelonLoader;
 using UltEvents;
 using UnityEngine;
 
+#if MELONLOADER
+using LabFusion.Utilities;
+using MelonLoader;
+#endif
+
+
 namespace Fusion5vs5Gamemode.SDK
 {
-#if MELONLOADER
-    [RegisterTypeInIl2Cpp]
-#else
+#if UNITY_EDITOR
     [AddComponentMenu("Fusion 5vs5 Gamemode/5vs5 Invoke Ult Event")]
     [DisallowMultipleComponent]
     [RequireComponent(typeof(UltEventHolder))]
 #endif
-    public class Invoke5vs5UltEvent : FusionMarrowBehaviour
+    public class Invoke5vs5UltEvent : Fusion5vs5GamemodeBehaviour
     {
         public Fusion5vs5GamemodeUltEvents Event;
 
@@ -39,12 +42,17 @@ namespace Fusion5vs5Gamemode.SDK
         public string TerroristTeamJoinedValue { get; set; }                // Holds the name of the player that joined tje Terrorist team. Gets updated right before the TerroristTeamJoined event gets called.
         public int CounterTerroristTeamScoredValue { get; set; }            // Holds the new total score for the Counter Terrorist Team. Gets updated right before the CounterTerroristTeamScored event gets called.
         public int TerroristTeamScoredValue { get; set; }                   // Holds the new total score for the Terrorist Team. Gets updated right before the TerroristTeamScored event gets called.
-        public bool WasLocalTeam { get; set; }                              // This value gets updated alongside CounterTerroristTeamScoredValue or TerroristTeamScoredValue to indicate whether the local player is part of the winning team. 
+        public bool WasLocalTeam { get; set; }                              // This value gets updated alongside CounterTerroristTeamScoredValue or TerroristTeamScoredValue or CounterTerroristTeamJoinedValue or TerroristTeamJoinedValue to indicate whether the local player is part of the winning team / team that has been joined. 
         public int NewRoundStartedValue { get; set; }                       // Holds the new round number based on the total number of rounds played so far. The round number is calculated by adding one to the count of completed rounds
         public string PlayerKilledAnotherPlayerValueKiller { get; set; }    // Holds the name of the player that killed the other player. The other player's name can be found in PlayerKilledAnotherPlayerValueKilled. Gets updated right before the PlayerKilledAnotherPlayer event gets called.
         public string PlayerKilledAnotherPlayerValueKilled { get; set; }    // Holds the name of the player that got killed by PlayerKilledAnotherPlayerValueKiller. Gets updated right before the PlayerKilledAnotherPlayer event gets called.
         public string PlayerSuicideValue { get; set; }                      // Holds the name of the player that killed themself. Gets updated right before the PlayerSuicide event gets called.
         public bool WasLocalPlayer { get; set; }                            // This value gets updated alongside PlayerKilledAnotherPlayerValueKilled and PlayerSuicideValue to indicate whether the player that died was the local player, aka the player that plays the game on the local machine
+
+        // Convenience methods for use in UltEventHolders
+        public string ConvertIntToString(int i) => i.ToString();
+
+        public string JoinStrings(string a, string b) => a + b;
         
 #if MELONLOADER
 
@@ -75,7 +83,7 @@ namespace Fusion5vs5Gamemode.SDK
         }
 #else
         public override string Comment => "The UltEventHolder attached to this GameObject will be executed whenever the event that can be selected from the dropdown below is triggered. "+
-        "Some events also have parameters that they come with once triggered, these can be accessed with the properties that end with \"Value\" inside of this Script. For example: the event NewRoundStarted "+
+        "Some events also have parameters that they come with. Once triggered, these can be accessed with the properties of this component that end with \"Value\" with the help of UltEvents. For example: the event NewRoundStarted "+
         "comes with an int that contains the new round number. Access this int with the NewRoundStartedValue property. Similar properties have been placed in this script for other events. "+
         "If unsure what some of these properties that end with \"Value\" mean or contain, open this script and read the comments next to these properties.";
 #endif

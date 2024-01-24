@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using BoneLib;
+using Fusion5vs5Gamemode.SDK;
 using LabFusion.Network;
 using LabFusion.Utilities;
 using SLZ.Marrow.SceneStreaming;
@@ -18,7 +19,9 @@ namespace Fusion5vs5Gamemode
     {
         public override void OnInitializeMelon()
         {
-            //Patches.Patch();
+            Commons.LogCustom("==================================================================\n");
+            FieldInjector.SerialisationHandler.Inject<Fusion5vs5GamemodeDescriptor>();
+            FieldInjector.SerialisationHandler.Inject<Invoke5vs5UltEvent>();
             GamemodeRegistration.LoadGamemodes(Assembly.GetExecutingAssembly());
         }
 

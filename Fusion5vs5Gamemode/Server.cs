@@ -35,14 +35,13 @@ namespace Fusion5vs5Gamemode
         public Team
             DefendingTeam { get; set; } // Will be set from the SDK with the Fusion5vs5Descriptor component
 
-        // Avatars
-        public string DefaultAvatarBarcode { get; set; } = CommonBarcodes.Avatars.FordBL;
-
         // States
         private GameStates _State = GameStates.Unknown;
         public GameStates State => _State;
+
         private Timer _GameTimer;
-        private int _TimeElapsed = 0;
+
+        //private int _TimeElapsed = 0;
         public Dictionary<GameStates, int> TimeLimits { get; }
 
         private Dictionary<PlayerId, PlayerStates> playerStatesDict;
@@ -51,6 +50,7 @@ namespace Fusion5vs5Gamemode
             bool enableHalfTime, bool enableLateJoining,
             bool allowAvatarChanging)
         {
+            Log(operations, defendingTeam, maxRounds, enableHalfTime, enableLateJoining, allowAvatarChanging);
             Operations = operations;
 
             MaxRounds = maxRounds;
@@ -71,6 +71,8 @@ namespace Fusion5vs5Gamemode
             _Teams[1] = TerroristTeam;
             DefendingTeam = defendingTeam == Fusion5vs5GamemodeTeams.Terrorists ? TerroristTeam : CounterTerroristTeam;
 
+            playerStatesDict = new Dictionary<PlayerId, PlayerStates>();
+
             TimeLimits = new Dictionary<GameStates, int>();
             TimeLimits.Add(GameStates.Warmup, 60);
             TimeLimits.Add(GameStates.BuyPhase, 15);
@@ -84,6 +86,7 @@ namespace Fusion5vs5Gamemode
 
         public void On5vs5Loaded()
         {
+            Log();
             MelonLogger.Msg(
                 $"Scene {FusionSceneManager.Level.Title} has been loaded for 5vs5 Gamemode. Barcode {FusionSceneManager.Level._barcode}.");
             MultiplayerHooking.OnMainSceneInitialized -= On5vs5Loaded;
@@ -111,6 +114,7 @@ namespace Fusion5vs5Gamemode
 
         public void On5vs5Aborted()
         {
+            Log();
             MelonLogger.Msg(
                 "5vs5 Mode: A different scene has been loaded while 5vs5 Gamemode was running. Aborting gamemode.");
             MultiplayerHooking.OnLoadingBegin -= On5vs5Aborted;
@@ -119,6 +123,7 @@ namespace Fusion5vs5Gamemode
 
         private void OnPlayerJoin(PlayerId playerId)
         {
+            Log(playerId);
             MelonLogger.Msg("5vs5 Mode: OnPlayerJoin Called.");
 
             InitializePlayer(playerId);
@@ -128,6 +133,7 @@ namespace Fusion5vs5Gamemode
 
         private void OnPlayerLeave(PlayerId playerId)
         {
+            Log(playerId);
             MelonLogger.Msg("5vs5 Mode: OnPlayerLeave Called.");
 
             GetTeam(playerId).RemovePlayer(playerId);
@@ -136,6 +142,7 @@ namespace Fusion5vs5Gamemode
 
         private void OnPlayerAction(PlayerId playerId, PlayerActionType type, PlayerId otherPlayer)
         {
+            Log(playerId, type, otherPlayer);
             try
             {
                 playerId.TryGetDisplayName(out string name1);
@@ -165,6 +172,7 @@ namespace Fusion5vs5Gamemode
 
         public void OnClientRequested(string request)
         {
+            Log(request);
             if (request.StartsWith(ClientRequest.ChangeTeams))
             {
                 string[] info = request.Split('.');
@@ -173,9 +181,10 @@ namespace Fusion5vs5Gamemode
                 TeamChangeRequested(player, team);
             }
         }
-        
+
         private void OnTimeElapsed()
         {
+            Log();
             if (NetworkInfo.IsServer)
             {
                 if (_State == GameStates.MatchEndPhase)
@@ -194,11 +203,12 @@ namespace Fusion5vs5Gamemode
                 NextState();
             }
         }
-        
+
         // Team
 
         public void TeamChangeRequested(PlayerId player, Team selectedTeam)
         {
+            Log(player, selectedTeam);
             if (player == null || selectedTeam == null)
             {
                 MelonLogger.Warning("TeamChangeRequested(): at least one argument was null.");
@@ -233,6 +243,7 @@ namespace Fusion5vs5Gamemode
 
         private Team GetTeam(PlayerId playerId)
         {
+            Log(playerId);
             foreach (var team in _Teams)
             {
                 foreach (var player in team.Players)
@@ -249,39 +260,46 @@ namespace Fusion5vs5Gamemode
 
         private Team GetTeamFromValue(string value)
         {
+            Log(value);
             return TerroristTeam.TeamName.Equals(value) ? TerroristTeam : CounterTerroristTeam;
         }
-        
+
         private void SetTeamName(Team team, string teamName)
         {
+            Log(team, teamName);
             Operations.SetMetadata(GetTeamNameKey(team), teamName);
             team.SetDisplayName(teamName);
         }
 
         private void IncrementTeamScore(Team team)
         {
+            Log(team);
             SetTeamScore(team, GetTeamScore(team) + 1);
         }
 
         private void SetTeamScore(Team team, int teamScore)
         {
-            Operations.SetMetadata(GetTeamScoreKey(team), teamScore.ToString());
+            Log(team, teamScore);
+            Operations.SetMetadata(GetTeamScoreKey(Commons.GetTeamFromValue(team.TeamName)), teamScore.ToString());
         }
 
         private int GetTeamScore(Team team)
         {
-            string teamScore = Operations.GetMetadata(GetTeamScoreKey(team));
+            Log(team);
+            string teamScore = Operations.GetMetadata(GetTeamScoreKey(Commons.GetTeamFromValue(team.TeamName)));
             return int.Parse(teamScore);
         }
-        
+
         private string GetTeamNameKey(Team team)
         {
+            Log(team);
             return $"{Metadata.TeamNameKey}.{team?.TeamName}";
         }
 
         // All dead, all dead...
         private void DetermineTeamWon(PlayerId killed)
         {
+            Log(killed);
             Team losingTeam = GetTeam(killed);
             foreach (var player in losingTeam.Players)
             {
@@ -301,6 +319,10 @@ namespace Fusion5vs5Gamemode
 
         private void InitializePlayer(PlayerId player)
         {
+            Log(player);
+
+            playerStatesDict.Add(player, PlayerStates.Spectator);
+
             SetPlayerKills(player, 0);
             SetPlayerDeaths(player, 0);
             SetPlayerAssists(player, 0);
@@ -310,75 +332,91 @@ namespace Fusion5vs5Gamemode
 
         private void PlayerKilled(PlayerId killer, PlayerId killed, object weapon)
         {
+            Log(killer, killed, weapon);
             SetPlayerKills(killer, GetPlayerKills(Operations.GetMetadata(), killer) + 1);
             SetPlayerDeaths(killed, GetPlayerDeaths(Operations.GetMetadata(), killed) + 1);
-
             SetPlayerState(killed, PlayerStates.Dead);
+
+            Operations.InvokeTrigger($"{Events.PlayerKilledPlayer}.{killer.LongId}.{killed.LongId}");
 
             DetermineTeamWon(killed);
         }
 
         private void Suicide(PlayerId playerId, object weapon)
         {
+            Log(playerId, weapon);
             SetPlayerDeaths(playerId, GetPlayerDeaths(Operations.GetMetadata(), playerId) + 1);
             SetPlayerState(playerId, PlayerStates.Dead);
+
+            Operations.InvokeTrigger($"{Events.PlayerKilledPlayer}.{playerId.LongId}");
+
             DetermineTeamWon(playerId);
         }
 
         private void SetPlayerKills(PlayerId killer, int kills)
         {
+            Log(killer, kills);
             Operations.SetMetadata(GetPlayerKillsKey(killer), kills.ToString());
         }
 
         private void SetPlayerDeaths(PlayerId killed, int deaths)
         {
+            Log(killed, deaths);
             Operations.SetMetadata(GetPlayerDeathsKey(killed), deaths.ToString());
         }
 
         private void SetPlayerAssists(PlayerId assister, int assists)
         {
+            Log(assister, assists);
             Operations.SetMetadata(GetPlayerAssistsKey(assister), assists.ToString());
         }
 
         private int GetPlayerAssists(PlayerId assister)
         {
+            Log(assister);
             string assistsScore = Operations.GetMetadata(GetPlayerAssistsKey(assister));
             return int.Parse(assistsScore);
         }
 
         private void SetPlayerState(PlayerId playerId, PlayerStates state)
         {
+            Log(playerId, state);
             playerStatesDict.Remove(playerId);
             playerStatesDict.Add(playerId, state);
         }
 
         private PlayerStates GetPlayerState(PlayerId player)
         {
+            Log(player);
             playerStatesDict.TryGetValue(player, out PlayerStates playerState);
             return playerState;
         }
 
         private void RevivePlayer(PlayerId player)
         {
+            Log(player);
             Team team = GetTeam(player);
             Operations.InvokeTrigger($"{Events.RevivePlayer}.{player.LongId}.{team.TeamName}");
         }
 
         private void KillPlayer(PlayerId player)
         {
+            Log(player);
             Operations.InvokeTrigger($"{Events.KillPlayer}.{player.LongId}");
         }
-        
+
         private void RespawnPlayer(PlayerId player)
         {
+            Log(player);
             Team team = GetTeam(player);
             Operations.InvokeTrigger($"{Events.RespawnPlayer}.{player.LongId}.{team.TeamName}");
         }
-        
+
         // Internal
 
         private void StartStateMachine()
         {
+            Log();
             _GameTimer = new Timer();
             _GameTimer.AutoReset = false;
             _GameTimer.Elapsed += (sender, args) => OnTimeElapsed();
@@ -388,6 +426,7 @@ namespace Fusion5vs5Gamemode
         // When calling NextState() from anywhere but the timer's Elapsed event, call this as the last thing, after changing scores, round numbers, etc.
         private void NextState()
         {
+            Log();
             OnStateEnd(_State);
             // In case anyone else calls NextState(), stop the timer manually
             _GameTimer.Stop();
@@ -408,13 +447,13 @@ namespace Fusion5vs5Gamemode
                         nextState = GameStates.PlayPhase;
                         break;
                     case GameStates.PlayPhase:
-                        if (IsRoundNumberMaxedOut() || IsTeamScoreMaxedOut())
-                        {
-                            nextState = GameStates.MatchEndPhase;
-                        }
-                        else if (EnableHalftime && HalfOfRoundsPlayed())
+                        if (EnableHalftime && HalfOfRoundsPlayed())
                         {
                             nextState = GameStates.MatchHalfPhase;
+                        }
+                        else if (IsRoundNumberMaxedOut() || IsTeamScoreMaxedOut())
+                        {
+                            nextState = GameStates.MatchEndPhase;
                         }
                         else
                         {
@@ -450,6 +489,7 @@ namespace Fusion5vs5Gamemode
 
         private void OnStateChanged(GameStates newState)
         {
+            Log(newState);
             switch (newState)
             {
                 case GameStates.Unknown:
@@ -490,7 +530,8 @@ namespace Fusion5vs5Gamemode
                     if (tScore == cScore)
                     {
                         Operations.InvokeTrigger(Events.GameTie);
-                    } else if (tScore > cScore)
+                    }
+                    else if (tScore > cScore)
                     {
                         Operations.InvokeTrigger($"{Events.TeamWonGame}.{TerroristTeam.TeamName}");
                     }
@@ -498,12 +539,14 @@ namespace Fusion5vs5Gamemode
                     {
                         Operations.InvokeTrigger($"{Events.TeamWonGame}.{CounterTerroristTeam.TeamName}");
                     }
+
                     break;
             }
         }
 
         private void OnStateEnd(GameStates state)
         {
+            Log(state);
             switch (state)
             {
                 case GameStates.Unknown:
@@ -525,16 +568,19 @@ namespace Fusion5vs5Gamemode
 
         private void IncrementRoundNumber()
         {
+            Log();
             SetRoundNumber(GetRoundNumber(Operations.GetMetadata()) + 1);
         }
 
         private void SetRoundNumber(int i)
         {
+            Log(i);
             Operations.SetMetadata(Metadata.RoundNumberKey, i.ToString());
         }
 
         private bool HalfOfRoundsPlayed()
         {
+            Log();
             string _roundNumber = Operations.GetMetadata(Metadata.RoundNumberKey);
             int roundNumber = int.Parse(_roundNumber);
             return roundNumber == MaxRounds / 2;
@@ -542,6 +588,7 @@ namespace Fusion5vs5Gamemode
 
         private bool IsTeamScoreMaxedOut()
         {
+            Log();
             int maxTeamScore = (int)((float)MaxRounds / 2) + 1;
 
             foreach (var team in _Teams)
@@ -558,6 +605,7 @@ namespace Fusion5vs5Gamemode
 
         private bool IsRoundNumberMaxedOut()
         {
+            Log();
             string _roundNumber = Operations.GetMetadata(Metadata.RoundNumberKey);
             int roundNumber = int.Parse(_roundNumber);
 
@@ -566,6 +614,7 @@ namespace Fusion5vs5Gamemode
 
         public void Dispose()
         {
+            Log();
             MultiplayerHooking.OnPlayerJoin -= OnPlayerJoin;
             MultiplayerHooking.OnPlayerLeave -= OnPlayerLeave;
             MultiplayerHooking.OnPlayerAction -= OnPlayerAction;

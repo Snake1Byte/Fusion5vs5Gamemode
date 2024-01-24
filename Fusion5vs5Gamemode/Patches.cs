@@ -26,16 +26,7 @@ namespace Fusion5vs5Gamemode
                 field.SetValue(a, b);
             }
         }
-        // [HarmonyPatch(nameof(Player_Health.OnReceivedDamage))]
-        // [HarmonyPostfix]
-        // public static void OnReceivedDamage(Player_Health __instance, Attack attack, BodyPart part)
-        // {
-        //     var a = 3;
-        //     var b = 4;
-        //     var c = a + b;
-        //     MelonLogger.Msg("COCKCCOKCOKCOKCOKCOKCOKCOKCOKCOKCOCKO " + c);
-        // }
-        
+        /*
         [StructLayout(LayoutKind.Sequential)]
         public struct Attack_
         {
@@ -109,8 +100,6 @@ namespace Fusion5vs5Gamemode
 
                     if (_attack.proxy != IntPtr.Zero)
                         proxy = new TriggerRefProxy(_attack.proxy);
-                    /*LogPropertiesAndFields("_attack", _attack);
-                    LogPropertiesAndFields("proxy", proxy);*/
                     MelonLogger.Msg($"========================Damage was {_attack.damage}========================");
                 }
 
@@ -189,6 +178,6 @@ namespace Fusion5vs5Gamemode
         public static void OnReceivedDamage(Attack attack, BodyPart part)
         {
             MelonLogger.Msg($"Shot body part was {part}.");
-        }
+        }*/
     }
 }

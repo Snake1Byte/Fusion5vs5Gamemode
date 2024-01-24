@@ -4,24 +4,26 @@ namespace Fusion5vs5Gamemode
 {
     public class SDKIntegration
     {
-        public static void InvokeCounterTerroristTeamJoined(string playerName)
+        public static void InvokeCounterTerroristTeamJoined(string playerName, bool wasLocalTeam)
         {
             foreach (var ultEvent in Invoke5vs5UltEvent.Cache.Components)
             {
                 if (ultEvent.Event == Invoke5vs5UltEvent.Fusion5vs5GamemodeUltEvents.CounterTerroristTeamJoined)
                 {
+                    ultEvent.WasLocalTeam = wasLocalTeam;
                     ultEvent.CounterTerroristTeamJoinedValue = playerName;
                     ultEvent.Invoke();
                 }
             }
         }
 
-        public static void InvokeTerroristTeamJoined(string playerName)
+        public static void InvokeTerroristTeamJoined(string playerName, bool wasLocalTeam)
         {
             foreach (var ultEvent in Invoke5vs5UltEvent.Cache.Components)
             {
                 if (ultEvent.Event == Invoke5vs5UltEvent.Fusion5vs5GamemodeUltEvents.TerroristTeamJoined)
                 {
+                    ultEvent.WasLocalTeam = wasLocalTeam;
                     ultEvent.TerroristTeamJoinedValue = playerName;
                     ultEvent.Invoke();
                 }
@@ -41,7 +43,7 @@ namespace Fusion5vs5Gamemode
             }
         }
 
-        public static void InvokeTerroristTeamJoinedScored(int totalScore, bool wasLocalTeam)
+        public static void InvokeTerroristTeamScored(int totalScore, bool wasLocalTeam)
         {
             foreach (var ultEvent in Invoke5vs5UltEvent.Cache.Components)
             {

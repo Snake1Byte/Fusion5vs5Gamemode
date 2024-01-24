@@ -1,4 +1,8 @@
 ﻿using System;
+using System.Diagnostics;
+using System.IO;
+using System.Reflection;
+using System.Text;
 using Fusion5vs5Gamemode.SDK;
 using LabFusion.Data;
 using LabFusion.Representation;
@@ -24,6 +28,8 @@ namespace Fusion5vs5Gamemode
 
         public static class Events
         {
+            public const string PlayerKilledPlayer = "PlayerKilledPlayer";
+            public const string PlayerSuicide = "PlayerSuicide";
             public const string KillPlayer = "KillPlayer";
             public const string RevivePlayer = "RevivePlayer";
             public const string RespawnPlayer = "RespawnPlayer";
@@ -44,31 +50,44 @@ namespace Fusion5vs5Gamemode
 
         public static string GetTeamMemberKey(PlayerId id)
         {
+            Log(id);
             return $"{Metadata.TeamKey}.{id.LongId}";
         }
 
-        public static string GetTeamScoreKey(Team team)
+        public static string GetTeamScoreKey(Fusion5vs5GamemodeTeams team)
         {
-            return $"{Metadata.TeamScoreKey}.{team?.TeamName}";
+            Log(team);
+            return $"{Metadata.TeamScoreKey}.{team.ToString()}";
+        }
+
+        public static Fusion5vs5GamemodeTeams GetTeamFromValue(string value)
+        {
+            Log(value);
+            return (Fusion5vs5GamemodeTeams)Enum.Parse(typeof(Fusion5vs5GamemodeTeams), value);
         }
 
         public static string GetPlayerKillsKey(PlayerId killer)
         {
+            Log(killer);
             return $"{Metadata.PlayerKillsKey}.{killer?.LongId}";
         }
 
         public static string GetPlayerAssistsKey(PlayerId assister)
         {
+            Log(assister);
             return $"{Metadata.PlayerAssistsKey}.{assister?.LongId}";
         }
 
         public static string GetPlayerDeathsKey(PlayerId killed)
         {
+            Log(killed);
             return $"{Metadata.PlayerDeathsKey}.{killed?.LongId}";
         }
-        
+
         public static PlayerId GetPlayerFromValue(string player)
         {
+            Log(player);
+            Log(player);
             ulong _playerId = ulong.Parse(player);
             foreach (var playerId in PlayerIdManager.PlayerIds)
             {
@@ -80,23 +99,105 @@ namespace Fusion5vs5Gamemode
 
             return null;
         }
-        
+
         public static int GetPlayerKills(FusionDictionary<string, string> metadata, PlayerId killer)
         {
+            Log(metadata, killer);
             metadata.TryGetValue(GetPlayerKillsKey(killer), out string killerScore);
             return int.Parse(killerScore);
         }
 
         public static int GetPlayerDeaths(FusionDictionary<string, string> metadata, PlayerId killed)
         {
+            Log(metadata, killed);
             metadata.TryGetValue(GetPlayerDeathsKey(killed), out string deathScore);
             return int.Parse(deathScore);
         }
-        
+
         public static int GetRoundNumber(FusionDictionary<string, string> metadata)
         {
+            Log(metadata);
             metadata.TryGetValue(Metadata.RoundNumberKey, out string roundNumber);
             return int.Parse(roundNumber);
+        }
+
+        public static StringBuilder builder = new StringBuilder();
+
+        public static void LogCustom(string custom)
+        {
+            builder.Append(custom);
+        }
+        public static void Log(params object[] parameters)
+        {
+            StackFrame frame = new StackFrame(1);
+            MethodBase method = frame.GetMethod();
+            if (method == null)
+            {
+                return;
+            }
+
+            builder.Append(method.DeclaringType.FullName + " ");
+            int i = 0;
+            builder.Append(method.Name);
+            if (method.GetParameters().Length > 0)
+            {
+                builder.Append("(");
+                foreach (var parameter in method.GetParameters())
+                {
+                    if (i > 0)
+                    {
+                        builder.Append(", ");
+                    }
+                    if (parameters != null)
+                    {
+                        builder.Append(parameter);
+                        builder.Append(" = ");
+                        builder.Append(parameters[i]);
+                        ++i;
+                    }
+                }
+                builder.Append(")");
+                builder.Append("\n");
+            }
+            else
+            {
+                builder.Append("()");
+                builder.Append("\n");
+            }
+
+            if (builder.Length > 10000)
+            {
+                Dump();
+            }
+        }
+
+        public static void Dump()
+        {
+            string filePath = "D:\\Windows User\\Desktop\\Fusion5vs5GamemodeDump.txt";
+            string contentToAppend = builder.ToString();
+            try
+            {
+                if (!File.Exists(filePath))
+                {
+                    using (StreamWriter sw = File.CreateText(filePath))
+                    {
+                        sw.Write(contentToAppend);
+                    }
+                }
+                else
+                {
+                    using (StreamWriter sw = File.AppendText(filePath))
+                    {
+                        sw.Write(contentToAppend);
+                    }
+                }
+
+                builder.Clear();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Could not dump stack trace: {ex.Message}");
+            }
         }
     }
 }

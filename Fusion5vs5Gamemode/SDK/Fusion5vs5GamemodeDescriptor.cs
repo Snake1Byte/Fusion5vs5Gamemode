@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Linq;
+using Fusion5vs5Gamemode.SDK.Internal;
 using LabFusion.MarrowIntegration;
 using SLZ.Marrow.Data;
 using SLZ.Marrow.Warehouse;
+using UnityEditor;
 using UnityEngine;
 
 #if MELONLOADER
@@ -14,22 +16,19 @@ using LabFusion.Utilities;
 
 namespace Fusion5vs5Gamemode.SDK
 {
-#if MELONLOADER
-    [RegisterTypeInIl2Cpp]
-#else
+#if UNITY_EDITOR
     [AddComponentMenu("Fusion 5vs5 Gamemode/Fusion5vs5GamemodeDescriptor")]
     [DisallowMultipleComponent]
 #endif
-    public class Fusion5vs5GamemodeDescriptor : FusionMarrowBehaviour
+    public class Fusion5vs5GamemodeDescriptor : Fusion5vs5GamemodeBehaviour
     {
-        public Fusion5vs5GamemodeTeams DefendingTeam = Fusion5vs5GamemodeTeams.Terrorists;
+        public Fusion5vs5GamemodeTeams DefendingTeam = Fusion5vs5GamemodeTeams.CounterTerrorists;
         public string CounterTerroristTeamName = "Sabrelake";
         public string TerroristTeamName = "Lava Gang";
 #if UNITY_EDITOR
         [Space(20)]
 #endif
         public AvatarCrate DefaultAvatar;
-        
 #if MELONLOADER
         public Fusion5vs5GamemodeDescriptor(IntPtr intPtr) : base(intPtr)
         {
@@ -52,10 +51,10 @@ namespace Fusion5vs5Gamemode.SDK
 #else
         public override string Comment =>
             "A script mandatory for making your map compatible with Fusion5vs5Gamemode. This script it required to start the gaemmode on this map.\n" +
-            "The Fusion5vs5Gamemode also has events that can trigger your custom UltEvents. To be able to listen to these events, add the \"Invoke5vs5UltEvent\" script to a GameObject."
+            "The Fusion5vs5Gamemode also has events that can trigger your custom UltEvents. To be able to listen to these events, add the \"Invoke5vs5UltEvent\" component to a GameObject.";
 #endif
     }
-    
+
     public enum Fusion5vs5GamemodeTeams
     {
         CounterTerrorists,
