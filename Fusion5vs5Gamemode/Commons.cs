@@ -34,6 +34,7 @@ namespace Fusion5vs5Gamemode
             public const string KillPlayer = "KillPlayer";
             public const string RevivePlayer = "RevivePlayer";
             public const string RespawnPlayer = "RespawnPlayer";
+            public const string SetSpectator = "SetSpectator";
             public const string TeamWonRound = "TeamWonRound";
             public const string TeamWonGame = "TeamWonGame";
             public const string GameTie = "GameTie";

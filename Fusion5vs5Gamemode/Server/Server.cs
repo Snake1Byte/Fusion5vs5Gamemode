@@ -219,12 +219,10 @@ namespace Fusion5vs5Gamemode.Server
 
                 if (_State == GameStates.Warmup || _State == GameStates.BuyPhase)
                 {
-                    SetPlayerState(player, PlayerStates.Alive);
-                    RevivePlayer(player);
+                    RespawnPlayer(player);
                 }
                 else if (_State == GameStates.PlayPhase || _State == GameStates.RoundEndPhase)
                 {
-                    SetPlayerState(player, PlayerStates.Dead);
                     KillPlayer(player);
                 }
             }
@@ -289,7 +287,16 @@ namespace Fusion5vs5Gamemode.Server
         private void DetermineTeamWon(PlayerId killed)
         {
             Log(killed);
+            if (_State != GameStates.PlayPhase)
+                return;
+
             Team losingTeam = GetTeam(killed);
+            // Not part of any team
+            if (losingTeam == null)
+            {
+                return;
+            }
+
             foreach (var player in losingTeam.Players)
             {
                 if (GetPlayerState(player) == PlayerStates.Alive)
@@ -341,24 +348,40 @@ namespace Fusion5vs5Gamemode.Server
         private void PlayerKilled(PlayerId killer, PlayerId killed, object weapon)
         {
             Log(killer, killed, weapon);
+
+            if (GetPlayerState(killer) != PlayerStates.Alive || GetPlayerState(killed) != PlayerStates.Alive)
+                return;
+
             SetPlayerKills(killer, GetPlayerKills(Operations.Metadata, killer) + 1);
             SetPlayerDeaths(killed, GetPlayerDeaths(Operations.Metadata, killed) + 1);
             SetPlayerState(killed, PlayerStates.Dead);
 
             Operations.InvokeTrigger($"{Events.PlayerKilledPlayer}.{killer.LongId}.{killed.LongId}");
 
-            DetermineTeamWon(killed);
+            if (_State != GameStates.Warmup)
+                Operations.InvokeTrigger($"{Events.SetSpectator}.{killed.LongId}");
+
+            if (_State == GameStates.PlayPhase)
+                DetermineTeamWon(killed);
         }
 
         private void Suicide(PlayerId playerId, object weapon)
         {
             Log(playerId, weapon);
+
+            if (GetPlayerState(playerId) != PlayerStates.Alive)
+                return;
+
             SetPlayerDeaths(playerId, GetPlayerDeaths(Operations.Metadata, playerId) + 1);
             SetPlayerState(playerId, PlayerStates.Dead);
 
-            Operations.InvokeTrigger($"{Events.PlayerKilledPlayer}.{playerId.LongId}");
+            Operations.InvokeTrigger($"{Events.PlayerSuicide}.{playerId.LongId}");
 
-            DetermineTeamWon(playerId);
+            if (_State != GameStates.Warmup)
+                Operations.InvokeTrigger($"{Events.SetSpectator}.{playerId.LongId}");
+
+            if (_State == GameStates.PlayPhase)
+                DetermineTeamWon(playerId);
         }
 
         private void SetPlayerKills(PlayerId killer, int kills)
@@ -403,6 +426,7 @@ namespace Fusion5vs5Gamemode.Server
         private void RevivePlayer(PlayerId player)
         {
             Log(player);
+            SetPlayerState(player, PlayerStates.Alive);
             Team team = GetTeam(player);
             Operations.InvokeTrigger($"{Events.RevivePlayer}.{player.LongId}.{team.TeamName}");
         }
@@ -410,6 +434,7 @@ namespace Fusion5vs5Gamemode.Server
         private void KillPlayer(PlayerId player)
         {
             Log(player);
+            SetPlayerState(player, PlayerStates.Dead);
             Operations.InvokeTrigger($"{Events.KillPlayer}.{player.LongId}");
         }
 
@@ -476,6 +501,10 @@ namespace Fusion5vs5Gamemode.Server
                         nextState = GameStates.BuyPhase;
                         break;
                 }
+
+                // This means the game is over
+                if (nextState == GameStates.Unknown)
+                    return;
 
                 if (TimeLimits.TryGetValue(nextState, out int timeLimit))
                 {
@@ -560,7 +589,7 @@ namespace Fusion5vs5Gamemode.Server
                 case GameStates.Unknown:
                     break;
                 case GameStates.Warmup:
-                    foreach (var player in PlayerIdManager.PlayerIds) 
+                    foreach (var player in PlayerIdManager.PlayerIds)
                         ResetScore(player);
                     break;
                 case GameStates.BuyPhase:
@@ -630,29 +659,34 @@ namespace Fusion5vs5Gamemode.Server
         public void Dispose()
         {
             Log();
-            MultiplayerHooking.OnPlayerJoin -= OnPlayerJoin;
-            MultiplayerHooking.OnPlayerLeave -= OnPlayerLeave;
-            MultiplayerHooking.OnPlayerAction -= OnPlayerAction;
-            MultiplayerHooking.OnLoadingBegin -= On5vs5Aborted;
-
-            foreach (var team in _Teams)
+            try
             {
-                foreach (var player in team.Players)
+                MultiplayerHooking.OnPlayerJoin -= OnPlayerJoin;
+                MultiplayerHooking.OnPlayerLeave -= OnPlayerLeave;
+                MultiplayerHooking.OnPlayerAction -= OnPlayerAction;
+                MultiplayerHooking.OnLoadingBegin -= On5vs5Aborted;
+
+                foreach (var team in _Teams)
                 {
-                    team.RemovePlayer(player);
+                    foreach (var player in team.Players)
+                    {
+                        team.RemovePlayer(player);
+                    }
                 }
             }
-
-            if (_GameTimer != null)
+            finally
             {
-                _GameTimer.Stop();
-                try
+                if (_GameTimer != null)
                 {
-                    _GameTimer.Dispose();
-                }
-                catch
-                {
-                    MelonLogger.Warning("Could not dispose game timer.");
+                    _GameTimer.Stop();
+                    try
+                    {
+                        _GameTimer.Dispose();
+                    }
+                    catch
+                    {
+                        MelonLogger.Warning("Could not dispose game timer.");
+                    }
                 }
             }
         }

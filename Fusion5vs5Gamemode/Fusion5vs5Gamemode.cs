@@ -16,6 +16,7 @@ using SLZ.Marrow.SceneStreaming;
 using TMPro;
 using UnityEngine;
 using static Fusion5vs5Gamemode.Commons;
+using static Fusion5vs5Gamemode.Fusion5vs5CustomModule;
 
 namespace Fusion5vs5Gamemode
 {
@@ -25,8 +26,7 @@ namespace Fusion5vs5Gamemode
 
         public override string GamemodeName => "5 vs 5";
 
-        public override bool PreventNewJoins => _PreventNewJoins;
-        private bool _PreventNewJoins = false;
+        public override bool PreventNewJoins => EnableLateJoining;
 
         public override bool AutoHolsterOnDeath => false;
         public override bool DisableManualUnragdoll => true;
@@ -135,12 +135,13 @@ namespace Fusion5vs5Gamemode
                 }
             });
 
-            // TODO request changing these settings during a game to the server
             _EnableLateJoiningSetting = category.CreateBoolElement("Enable late joining", Color.white,
                 EnableLateJoining, b =>
                 {
                     if (IsActive())
                         _EnableLateJoiningSetting.SetValue(EnableLateJoining);
+                    else
+                        EnableLateJoining = b;
                 });
 
             _AllowAvatarChangingSetting = category.CreateBoolElement("Allow avatar changing", Color.white,
@@ -221,7 +222,6 @@ namespace Fusion5vs5Gamemode
                 ? Fusion5vs5GamemodeTeams.CounterTerrorists
                 : descriptor.DefendingTeam;
 #pragma warning restore CS0472
-            _PreventNewJoins = !_EnableLateJoiningSetting.GetValue();
             _DefaultAvatar = descriptor.DefaultAvatar == null
                 ? _DefaultAvatar
                 : descriptor.DefaultAvatar._barcode.ToString();
@@ -253,6 +253,7 @@ namespace Fusion5vs5Gamemode
                 Server.Dispose();
             }
 
+            _Menu.Elements.RemoveInstance(_JoinSpectatorSelection);
             _Menu.Elements.RemoveInstance(_DefendingTeamSelection);
             _Menu.Elements.RemoveInstance(_AttackingTeamSelection);
             _Menu.Elements.Insert(0, _EnableHalfTimeSetting);
@@ -306,7 +307,6 @@ namespace Fusion5vs5Gamemode
                 PlayerId killed = GetPlayerFromValue(_killed);
                 killer.TryGetDisplayName(out string killerName);
                 killed.TryGetDisplayName(out string killedName);
-                SetSpectator(killed);
                 SDKIntegration.InvokePlayerKilledAnotherPlayer(killerName, killedName, killed.IsSelf);
             }
             else if (eventName.StartsWith(Events.PlayerSuicide))
@@ -329,7 +329,6 @@ namespace Fusion5vs5Gamemode
                 string _team = eventName.Split('.')[2];
                 PlayerId player = GetPlayerFromValue(_player);
                 Fusion5vs5GamemodeTeams team = GetTeamFromValue(_team);
-                ;
 
                 RevivePlayer(player, team);
             }
@@ -341,6 +340,12 @@ namespace Fusion5vs5Gamemode
                 Fusion5vs5GamemodeTeams team = GetTeamFromValue(_team);
 
                 RespawnPlayer(player, team);
+            }
+            else if (eventName.StartsWith(Events.SetSpectator))
+            {
+                string _player = eventName.Split('.')[1];
+                PlayerId player = GetPlayerFromValue(_player);
+                SetSpectator(player);
             }
             else if (eventName.StartsWith(Events.TeamWonRound))
             {
@@ -648,39 +653,20 @@ namespace Fusion5vs5Gamemode
         private void KillPlayer(PlayerId player)
         {
             Log(player);
-            // TODO simply spawn ragdoll where the player avatar is without actually killing player
+            // TODO spawn player's ragdoll where the player avatar is without killing player
             SetSpectator(player);
         }
 
         private void RespawnPlayer(PlayerId player, Fusion5vs5GamemodeTeams team)
         {
             Log(player, team);
-            // TODO RevivePlayer would call this. RevivePlayer will first get the player out of spectator mode
+            // TODO Simply teleport player to his team's spawn
         }
 
         private void SetSpectator(PlayerId player)
         {
             Log(player);
             // TODO change to spectator avatar, remove interactibility and visibility
-        }
-
-        private void RequestToServer(string request)
-        {
-            Log(request);
-            if (NetworkInfo.HasServer)
-            {
-                using (var writer = FusionWriter.Create())
-                {
-                    using (var data = Fusion5vs5ClientRequest.Create(request))
-                    {
-                        writer.Write(data);
-                        using (var message = FusionMessage.ModuleCreate<Fusion5vs5ClientRequestHandler>(writer))
-                        {
-                            MessageSender.SendToServer(NetworkChannel.Reliable, message);
-                        }
-                    }
-                }
-            }
         }
 
         private void Notify(string header, string body)

@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using BoneLib;
 using Fusion5vs5Gamemode.SDK;
 using LabFusion.Network;
+using LabFusion.SDK.Modules;
 using LabFusion.Utilities;
 using SLZ.Marrow.SceneStreaming;
 using CommonBarcodes = LabFusion.Utilities.CommonBarcodes;
@@ -22,30 +23,13 @@ namespace Fusion5vs5Gamemode
             Commons.LogCustom("==================================================================\n");
             FieldInjector.SerialisationHandler.Inject<Fusion5vs5GamemodeDescriptor>();
             FieldInjector.SerialisationHandler.Inject<Invoke5vs5UltEvent>();
+            ModuleHandler.LoadModule(Assembly.GetExecutingAssembly());
             GamemodeRegistration.LoadGamemodes(Assembly.GetExecutingAssembly());
         }
 
-        // For calling from within the UnityExplorer console
-        public static void StartEverything()
-        {
-            MultiplayerHooking.OnStartServer += StartMap;
-            NetworkHelper.StartServer();
-        }
+        public const string Name = "Fusion5vs5Gamemode";
+        public const string Version = "0.0.1";
+        public const string Author = "Snake1Byte";
 
-        private static void StartMap()
-        {
-            MultiplayerHooking.OnStartServer -= StartMap;
-            MultiplayerHooking.OnMainSceneInitialized += StartGamemode;
-            SceneStreamer.Load("Snek.csoffice.Level.Csoffice");
-        }
-
-        private static void StartGamemode()
-        {
-            if (FusionSceneManager.Level._barcode.Equals("Snek.csoffice.Level.Csoffice"))
-            {
-                MultiplayerHooking.OnMainSceneInitialized -= StartGamemode;
-                Fusion5vs5Gamemode.Instance.StartGamemode();
-            }
-        }
     }
 }

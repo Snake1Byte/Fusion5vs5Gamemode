@@ -103,6 +103,7 @@ python "D:\Windows User\Documents\Python\a\shit.py" "C:\Users\Snek\source\repos\
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Fusion5vs5ClientRequest.cs" />
+    <Compile Include="Fusion5vs5CustomModule.cs" />
     <Compile Include="Fusion5vs5Gamemode.cs" />
     <Compile Include="GameStates.cs" />
     <Compile Include="MainClass.cs" />

@@ -2,6 +2,7 @@
 using LabFusion.Data;
 using LabFusion.Network;
 using LabFusion.SDK.Gamemodes;
+using MelonLoader;
 
 namespace Fusion5vs5Gamemode
 {
@@ -26,7 +27,7 @@ namespace Fusion5vs5Gamemode
 
         public static Fusion5vs5ClientRequest Create(string value)
         {
-            return new Fusion5vs5ClientRequest() { value = value };
+            return new Fusion5vs5ClientRequest { value = value };
         }
     }
 
@@ -41,7 +42,8 @@ namespace Fusion5vs5Gamemode
                     if (NetworkInfo.IsServer && Fusion5vs5Gamemode.Instance != null)
                     {
                         var info = data.value;
-                        if (Fusion5vs5Gamemode.Instance.Tag.HasValue && GamemodeManager.TryGetGamemode(Fusion5vs5Gamemode.Instance.Tag.Value, out var gamemode))
+                        if (Fusion5vs5Gamemode.Instance.Tag.HasValue &&
+                            GamemodeManager.TryGetGamemode(Fusion5vs5Gamemode.Instance.Tag.Value, out var gamemode))
                         {
                             Fusion5vs5Gamemode.Instance.Server.OnClientRequested(info);
                         }
