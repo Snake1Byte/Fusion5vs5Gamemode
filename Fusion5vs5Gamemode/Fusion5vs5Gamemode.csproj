@@ -111,8 +111,10 @@ python "D:\Windows User\Documents\Python\a\shit.py" "C:\Users\Snek\source\repos\
     <Compile Include="Patches.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SDKIntegration.cs" />
+    <Compile Include="SDK\BuyZone.cs" />
     <Compile Include="SDK\Editor\Fusion5vs5GameModeEditor.cs" />
     <Compile Include="SDK\Fusion5vs5GamemodeDescriptor.cs" />
+    <Compile Include="SDK\Fusion5vs5Spawnpoint.cs" />
     <Compile Include="SDK\Internal\Fusion5vs5GamemodeBehaviour.cs" />
     <Compile Include="SDK\Invoke5vs5UltEvent.cs" />
     <Compile Include="ServerOperationsImpl.cs" />

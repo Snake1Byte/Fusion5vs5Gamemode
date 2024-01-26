@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Fusion5vs5Gamemode.SDK.Internal;
 using LabFusion.MarrowIntegration;
@@ -22,13 +23,21 @@ namespace Fusion5vs5Gamemode.SDK
 #endif
     public class Fusion5vs5GamemodeDescriptor : Fusion5vs5GamemodeBehaviour
     {
-        public Fusion5vs5GamemodeTeams DefendingTeam = Fusion5vs5GamemodeTeams.CounterTerrorists;
+#if UNITY_EDITOR
+        [Header("REQUIRED")] public Fusion5vs5GamemodeTeams DefendingTeam = Fusion5vs5GamemodeTeams.CounterTerrorists;
+#endif
         public string CounterTerroristTeamName = "Sabrelake";
         public string TerroristTeamName = "Lava Gang";
+        public BuyZone CounterTerroristBuyZone;
+        public BuyZone TerroristBuyZone;
+        public List<Fusion5vs5Spawnpoint> CounterTerroristSpawnPoints = new List<Fusion5vs5Spawnpoint>();
+        public List<Fusion5vs5Spawnpoint> TerroristSpawnPoints = new List<Fusion5vs5Spawnpoint>();
+
 #if UNITY_EDITOR
-        [Space(20)]
+        [Space(20)] [Header("OPTIONAL")]
 #endif
         public AvatarCrate DefaultAvatar;
+
 #if MELONLOADER
         public Fusion5vs5GamemodeDescriptor(IntPtr intPtr) : base(intPtr)
         {
