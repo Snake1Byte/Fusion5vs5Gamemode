@@ -13,7 +13,7 @@ using MelonLoader;
 namespace Fusion5vs5Gamemode.SDK
 {
 #if UNITY_EDITOR
-    [AddComponentMenu("Fusion 5vs5 Gamemode/5vs5 Invoke Ult Event")]
+    [AddComponentMenu("Fusion 5vs5 Gamemode/Optional/5vs5 Invoke Ult Event")]
     [RequireComponent(typeof(UltEventHolder))]
 #endif
     public class Invoke5vs5UltEvent : Fusion5vs5GamemodeBehaviour

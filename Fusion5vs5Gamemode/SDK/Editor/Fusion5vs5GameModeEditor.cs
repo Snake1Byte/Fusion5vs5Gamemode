@@ -1,6 +1,8 @@
 #if !MELONLOADER
+using System;
+using System.Collections.Generic;
 using Fusion5vs5Gamemode.SDK.Internal;
-using LabFusion.MarrowIntegration;
+using SLZ.MarrowEditor;
 using UnityEditor;
 using UnityEngine;
 
@@ -35,128 +37,115 @@ namespace Fusion5vs5Gamemode.SDK.Editor
                 EditorGUILayout.HelpBox(behaviour.Comment, MessageType.Info);
             }
 
+            EditorGUILayout.Space(20);
+
             base.OnInspectorGUI();
 
             EditorGUILayout.Space(20);
 
+            if (Resources.FindObjectsOfTypeAll<Fusion5vs5GamemodeDescriptor>().Length > 1)
+            {
+                EditorGUILayout.HelpBox(
+                    "Warning, there is more than one Fusion5vs5GamemodeDescriptor component in this level! This is not allowed and might break the Gamemode!",
+                    MessageType.Warning);
+            }
 
             if (behaviour.CounterTerroristBuyZone == null)
             {
-                EditorGUILayout.HelpBox("Counter Terrorist BuyZone must be set!", MessageType.Error);
+                EditorGUILayout.HelpBox("Counter Terrorist buy zone Collider must be set!", MessageType.Error);
             }
-            else if (behaviour.CounterTerroristBuyZone.Team == Fusion5vs5GamemodeTeams.Terrorists)
+            else if (!behaviour.CounterTerroristBuyZone.isTrigger)
             {
-                EditorGUILayout.HelpBox("Counter Terrorist BuyZone has a Terrorist BuyZone assigned!",
-                    MessageType.Error);
+                EditorGUILayout.HelpBox(
+                    "Warning, the Counter Terrorist buy zone is not set to \"Is Trigger\". Players will collide with this buy zone!",
+                    MessageType.Warning);
             }
 
             if (behaviour.TerroristBuyZone == null)
             {
-                EditorGUILayout.HelpBox("Terrorist BuyZone must be set!", MessageType.Error);
+                EditorGUILayout.HelpBox("Terrorist buy zone Collider must be set!", MessageType.Error);
             }
-            else if (behaviour.TerroristBuyZone.Team == Fusion5vs5GamemodeTeams.CounterTerrorists)
+            else if (!behaviour.TerroristBuyZone.isTrigger)
             {
-                EditorGUILayout.HelpBox("Terrorist BuyZone has a Counter Terrorist BuyZone assigned!",
-                    MessageType.Error);
+                EditorGUILayout.HelpBox(
+                    "Warning, the Terrorist buy zone is not set to \"Is Trigger\". Players will collide with this buy zone!",
+                    MessageType.Warning);
+            }
+
+            if (behaviour.CounterTerroristBuyZone != null &&
+                behaviour.TerroristBuyZone == behaviour.CounterTerroristBuyZone)
+            {
+                EditorGUILayout.HelpBox(
+                    "Warning, the Terrorist buy zone and Counter Terrorist buy zone Colliders are the same!",
+                    MessageType.Warning);
             }
 
             if (behaviour.CounterTerroristSpawnPoints.Count < 5)
             {
                 EditorGUILayout.HelpBox(
-                    "You must add at least 5 different Counter Terrorist Spawnpoints to the list above!",
+                    "You must add at least 5 different Counter Terrorist spawn points to the list!",
                     MessageType.Error);
-            }
-
-            foreach (var spawnPoint in behaviour.CounterTerroristSpawnPoints)
-            {
-                if (spawnPoint.Team == Fusion5vs5GamemodeTeams.Terrorists)
-                {
-                    EditorGUILayout.HelpBox(
-                        "Counter Terrorist Spawnpoint List has a Terrorist Spawnpoint assigned to it!",
-                        MessageType.Error);
-                    break;
-                }
             }
 
             if (behaviour.TerroristSpawnPoints.Count < 5)
             {
-                EditorGUILayout.HelpBox("You must add at least 5 different Terrorist Spawnpoints to the list above!",
+                EditorGUILayout.HelpBox("You must add at least 5 different Terrorist spawn points to the list!",
                     MessageType.Error);
             }
 
-            foreach (var spawnPoint in behaviour.TerroristSpawnPoints)
+            bool breakLoop = false;
+            for (int i = 0; i < behaviour.CounterTerroristSpawnPoints.Count; ++i)
             {
-                if (spawnPoint.Team == Fusion5vs5GamemodeTeams.CounterTerrorists)
+                for (int j = i + 1; j < behaviour.CounterTerroristSpawnPoints.Count; ++j)
                 {
-                    EditorGUILayout.HelpBox(
-                        "Terrorist Spawnpoint List has a CounterTerrorist Spawnpoint assigned to it!",
-                        MessageType.Error);
+                    if (behaviour.CounterTerroristSpawnPoints[i] == behaviour.CounterTerroristSpawnPoints[j])
+                    {
+                        EditorGUILayout.HelpBox("Warning, Counter Terrorist spawn point list contains duplicate Transforms!",
+                            MessageType.Warning);
+                        breakLoop = true;
+                        break;
+                    }
+                }
+
+                if (breakLoop)
                     break;
-                }
             }
-        }
-    }
-
-    [CustomEditor(typeof(BuyZone), editorForChildClasses: false)]
-    public class BuyZoneEditor : UnityEditor.Editor
-    {
-        public override void OnInspectorGUI()
-        {
-            var behaviour = target as BuyZone;
-            if (behaviour == null)
-                return;
-            if (behaviour.Comment != null)
+            
+            breakLoop = false;
+            for (int i = 0; i < behaviour.TerroristSpawnPoints.Count; ++i)
             {
-                EditorGUILayout.HelpBox(behaviour.Comment, MessageType.Info);
-            }
-
-            base.OnInspectorGUI();
-
-            EditorGUILayout.Space(20);
-
-            Collider col = behaviour.gameObject.GetComponent<Collider>();
-            if (col != null)
-            {
-                if (!col.isTrigger)
+                for (int j = i + 1; j < behaviour.TerroristSpawnPoints.Count; ++j)
                 {
-                    GUILayout.BeginHorizontal();
-                    EditorGUILayout.HelpBox(
-                        "Warning, the collider attached to this GameObject is not set to \"Is Trigger\". Players and objects will collide with this collider.",
-                        MessageType.Warning);
-                    if (GUILayout.Button("Auto Fix",  new[] { GUILayout.ExpandHeight(true) }))
-                        col.isTrigger = true;
-                    GUILayout.EndHorizontal();
+                    if (behaviour.TerroristSpawnPoints[i] == behaviour.TerroristSpawnPoints[j])
+                    {
+                        EditorGUILayout.HelpBox("Warning, Counter Terrorist spawn point list contains duplicate Transforms!",
+                            MessageType.Warning);
+                        breakLoop = true;
+                        break;
+                    }
                 }
-            }
 
-            if (behaviour.gameObject.layer != 27)
+                if (breakLoop)
+                    break;
+            }
+            
+            breakLoop = false;
+            for (int i = 0; i < behaviour.TerroristSpawnPoints.Count; ++i)
             {
-                GUILayout.BeginHorizontal();
-                EditorGUILayout.HelpBox(
-                    "Warning, this GameObject's layer must be set to  \"Trigger\". Otherwise, the BuyZone will not work.",
-                    MessageType.Warning);
-                if (GUILayout.Button("Auto Fix",  new[] { GUILayout.ExpandHeight(true) }))
-                    behaviour.gameObject.layer = 27;
-                GUILayout.EndHorizontal();
-            }
-        }
-    }
+                for (int j = 0; j < behaviour.CounterTerroristSpawnPoints.Count; ++j)
+                {
+                    if (behaviour.TerroristSpawnPoints[i] == behaviour.CounterTerroristSpawnPoints[j])
+                    {
+                        EditorGUILayout.HelpBox("Warning, spawn lists for Counter Terrorists and Terrorists contain mutual Transforms!",
+                            MessageType.Warning);
+                        breakLoop = true;
+                        break;
+                    }
+                }
 
-    [CustomEditor(typeof(Fusion5vs5Spawnpoint), editorForChildClasses: false)]
-    [CanEditMultipleObjects]
-    public class Fusion5vs5SpawnpointEditor : UnityEditor.Editor
-    {
-        public override void OnInspectorGUI()
-        {
-            var behaviour = target as Fusion5vs5Spawnpoint;
-            if (behaviour == null)
-                return;
-            if (behaviour.Comment != null)
-            {
-                EditorGUILayout.HelpBox(behaviour.Comment, MessageType.Info);
+                if (breakLoop)
+                    break;
             }
-
-            base.OnInspectorGUI();
         }
     }
 }

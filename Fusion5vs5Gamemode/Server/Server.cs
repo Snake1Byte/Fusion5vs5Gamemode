@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Timers;
 using Fusion5vs5Gamemode.SDK;
 using LabFusion.Network;
@@ -8,7 +9,8 @@ using LabFusion.SDK.Gamemodes;
 using LabFusion.Senders;
 using LabFusion.Utilities;
 using MelonLoader;
-using SLZ.Bonelab;
+using UnityEngine;
+using UnityEngine.Playables;
 using static Fusion5vs5Gamemode.Commons;
 
 namespace Fusion5vs5Gamemode.Server
@@ -23,12 +25,13 @@ namespace Fusion5vs5Gamemode.Server
         private bool AllowAvatarChanging { get; }
 
         // Teams
-        private string CounterTerroristTeamName { get; set; } = "Sabrelake";
-        private string TerroristTeamName { get; set; } = "Lava Gang";
         private Team CounterTerroristTeam { get; }
         private Team TerroristTeam { get; }
-
         private readonly Team[] _Teams;
+        
+        private Dictionary<PlayerId, SpawnPointRepresentation> _SpawnPoints = new Dictionary<PlayerId, SpawnPointRepresentation>();
+        private List<SpawnPointRepresentation> _CounterTerroristSpawnPoints;
+        private List<SpawnPointRepresentation> _TerroristSpawnPoints;
 
         // For defusing game mode, this would be Counter Terrorist Team. For hostage, this would be Terrorist Team.
         public Team
@@ -40,20 +43,27 @@ namespace Fusion5vs5Gamemode.Server
 
         private Timer _GameTimer;
 
-        //private int _TimeElapsed = 0;
         private Dictionary<GameStates, int> TimeLimits { get; }
 
-        private Dictionary<PlayerId, PlayerStates> _PlayerStatesDict;
+        private readonly Dictionary<PlayerId, PlayerStates> _PlayerStatesDict;
 
-        public Server(IServerOperations operations, Dictionary<GameStates, int> timeLimits,
-            Fusion5vs5GamemodeTeams defendingTeam, int maxRounds,
-            bool enableHalfTime, bool enableLateJoining,
-            bool allowAvatarChanging)
+        public Server(IServerOperations operations,
+            Fusion5vs5GamemodeTeams defendingTeam,
+            List<SpawnPointRepresentation> counterTerroristSpawnPoints,
+            List<SpawnPointRepresentation> terroristSpawnPoints,
+            int maxRounds,
+            bool enableHalfTime,
+            bool enableLateJoining,
+            bool allowAvatarChanging,
+            Dictionary<GameStates, int> timeLimits)
         {
-            Log(operations, timeLimits, defendingTeam, maxRounds, enableHalfTime, enableLateJoining,
-                allowAvatarChanging);
+            Log(operations, defendingTeam, counterTerroristSpawnPoints, terroristSpawnPoints, maxRounds, enableHalfTime,
+                enableLateJoining, allowAvatarChanging,
+                timeLimits);
             Operations = operations;
 
+            _CounterTerroristSpawnPoints = counterTerroristSpawnPoints;
+            _TerroristSpawnPoints = terroristSpawnPoints;
             MaxRounds = maxRounds;
             EnableHalftime = enableHalfTime;
             EnableLateJoining = enableLateJoining;
@@ -85,9 +95,6 @@ namespace Fusion5vs5Gamemode.Server
                 $"Scene {FusionSceneManager.Level.Title} has been loaded for 5vs5 Gamemode. Barcode {FusionSceneManager.Level._barcode}.");
             MultiplayerHooking.OnMainSceneInitialized -= On5vs5Loaded;
             MultiplayerHooking.OnLoadingBegin += On5vs5Aborted;
-
-            SetTeamName(CounterTerroristTeam, CounterTerroristTeamName);
-            SetTeamName(TerroristTeam, TerroristTeamName);
 
             foreach (var team in _Teams)
             {
@@ -179,6 +186,9 @@ namespace Fusion5vs5Gamemode.Server
                 string[] info = request.Split('.');
                 PlayerId player = GetPlayerFromValue(info[1]);
                 Team team = GetTeam(player);
+                if (team == null)
+                    return;
+                _SpawnPoints.Remove(player);
                 team.RemovePlayer(player);
                 SetPlayerState(player, PlayerStates.Spectator);
                 Operations.InvokeTrigger($"{Events.PlayerSpectates}.{player?.LongId}");
@@ -206,24 +216,56 @@ namespace Fusion5vs5Gamemode.Server
             Team currentTeam = GetTeam(player);
             if (currentTeam != selectedTeam)
             {
+                var spawnPoints = selectedTeam.Equals(CounterTerroristTeam)
+                    ? _CounterTerroristSpawnPoints
+                    : _TerroristSpawnPoints;
+                SpawnPointRepresentation? newSpawnPoint = AssignSpawnPoint(player, spawnPoints);
+                if (newSpawnPoint == null)
+                {
+                    MelonLogger.Warning("TeamChangeRequested(): no free spawn points available for this team.");
+                    return;
+                }
+
                 if (currentTeam != null)
                 {
                     currentTeam.RemovePlayer(player);
                 }
 
                 selectedTeam.AddPlayer(player);
+                SetPlayerState(player, PlayerStates.Alive);
                 Operations.SetMetadata(GetTeamMemberKey(player), selectedTeam.TeamName);
                 MelonLogger.Msg($"Player {playerName} switched teams to {selectedTeam.TeamName}");
 
                 if (_State == GameStates.Warmup || _State == GameStates.BuyPhase)
                 {
-                    RespawnPlayer(player);
+                    RespawnPlayerLocal(player);
                 }
                 else if (_State == GameStates.PlayPhase || _State == GameStates.RoundEndPhase)
                 {
                     KillPlayer(player);
                 }
             }
+        }
+
+        private SpawnPointRepresentation? AssignSpawnPoint(PlayerId player, List<SpawnPointRepresentation> spawnPoints)
+        {
+            Log(player, spawnPoints);
+            foreach (SpawnPointRepresentation spawnPoint in spawnPoints)
+            {
+                if (!_SpawnPoints.TryGetValue(player, out var transform) || !spawnPoints.Contains(transform))
+                {
+                    // Found a free spawn point for the player to assign to
+                    _SpawnPoints.Remove(player);
+                    _SpawnPoints.Add(player, spawnPoint);
+                    var pos = spawnPoint.position;
+                    var rot = spawnPoint.eulerAngles;
+                    Operations.InvokeTrigger(
+                        $"{Events.SpawnPointAssigned}.{player.LongId}.{pos.x},{pos.y},{pos.z},{rot.x},{rot.y},{rot.z}");
+                    return spawnPoint;
+                }
+            }
+
+            return null;
         }
 
         private Team GetTeam(PlayerId playerId)
@@ -249,13 +291,6 @@ namespace Fusion5vs5Gamemode.Server
             return TerroristTeam.TeamName.Equals(value) ? TerroristTeam : CounterTerroristTeam;
         }
 
-        private void SetTeamName(Team team, string teamName)
-        {
-            Log(team, teamName);
-            Operations.SetMetadata(GetTeamNameKey(team), teamName);
-            team.SetDisplayName(teamName);
-        }
-
         private void IncrementTeamScore(Team team)
         {
             Log(team);
@@ -273,12 +308,6 @@ namespace Fusion5vs5Gamemode.Server
             Log(team);
             string teamScore = Operations.GetMetadata(GetTeamScoreKey(Commons.GetTeamFromValue(team.TeamName)));
             return int.Parse(teamScore);
-        }
-
-        private string GetTeamNameKey(Team team)
-        {
-            Log(team);
-            return $"{Metadata.TeamNameKey}.{team?.TeamName}";
         }
 
         // All dead, all dead...
@@ -322,6 +351,18 @@ namespace Fusion5vs5Gamemode.Server
             int score = GetTeamScore(CounterTerroristTeam);
             SetTeamScore(CounterTerroristTeam, GetTeamScore(TerroristTeam));
             SetTeamScore(TerroristTeam, score);
+
+            _SpawnPoints.Clear();
+            foreach (var team in _Teams)
+            {
+                List<SpawnPointRepresentation> spawnPoints = team.Equals(CounterTerroristTeam)
+                    ? _CounterTerroristSpawnPoints
+                    : _TerroristSpawnPoints;
+                foreach (var player in team.Players)
+                {
+                    AssignSpawnPoint(player, spawnPoints);
+                }
+            }
         }
 
         // Player
@@ -443,6 +484,13 @@ namespace Fusion5vs5Gamemode.Server
             Operations.InvokeTrigger($"{Events.RespawnPlayer}.{player.LongId}.{team.TeamName}");
         }
 
+        private void RespawnPlayerLocal(PlayerId player)
+        {
+            Log(player);
+            Team team = GetTeam(player);
+            Operations.InvokeTrigger($"{Events.RespawnPlayerLocal}.{player.LongId}");
+        }
+
         // Internal
 
         private void StartStateMachine()
@@ -545,7 +593,7 @@ namespace Fusion5vs5Gamemode.Server
                                 }
                                 else if (playerState == PlayerStates.Alive)
                                 {
-                                    RespawnPlayer(player);
+                                    RespawnPlayerLocal(player);
                                 }
                             }
                         }

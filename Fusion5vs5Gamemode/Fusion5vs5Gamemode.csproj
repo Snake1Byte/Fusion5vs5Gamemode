@@ -32,9 +32,9 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <PropertyGroup>
-    <PostBuildEvent>python "D:\Windows User\Documents\Python\a\shit.py" "C:\Users\Snek\source\repos\Fusion5vs5Gamemode\Fusion5vs5Gamemode\bin\Debug\Fusion5vs5Gamemode.dll" "C:\Program Files (x86)\Steam\steamapps\common\BONELAB\Mods"
+    <PostBuildEvent>python "D:\Windows User\Documents\Python\a\Copy Files.py" "C:\Users\Snek\source\repos\Fusion5vs5Gamemode\Fusion5vs5Gamemode\bin\Debug\Fusion5vs5Gamemode.dll" "C:\Program Files (x86)\Steam\steamapps\common\BONELAB\Mods"
 
-python "D:\Windows User\Documents\Python\a\shit.py" "C:\Users\Snek\source\repos\Fusion5vs5Gamemode\Fusion5vs5Gamemode\SDK" "H:\UnityProjectlamo\Fusion Marrow Integration Testing\Assets\Fusion5vs5Gamemode Marrow Integration"</PostBuildEvent>
+python "D:\Windows User\Documents\Python\a\Copy Files.py" "C:\Users\Snek\source\repos\Fusion5vs5Gamemode\Fusion5vs5Gamemode\SDK" "H:\UnityProjectlamo\Fusion Marrow Integration Testing\Assets\Fusion5vs5Gamemode Marrow Integration"</PostBuildEvent>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="0Harmony">
@@ -97,6 +97,9 @@ python "D:\Windows User\Documents\Python\a\shit.py" "C:\Users\Snek\source\repos\
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\BONELAB\MelonLoader\Managed\UnityEngine.CoreModule.dll</HintPath>
     </Reference>
+    <Reference Include="UnityEngine.PhysicsModule">
+      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\BONELAB\MelonLoader\Managed\UnityEngine.PhysicsModule.dll</HintPath>
+    </Reference>
     <Reference Include="UnityEngine.UI">
       <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\BONELAB\MelonLoader\Managed\UnityEngine.UI.dll</HintPath>
     </Reference>
@@ -111,15 +114,14 @@ python "D:\Windows User\Documents\Python\a\shit.py" "C:\Users\Snek\source\repos\
     <Compile Include="Patches.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SDKIntegration.cs" />
-    <Compile Include="SDK\BuyZone.cs" />
     <Compile Include="SDK\Editor\Fusion5vs5GameModeEditor.cs" />
     <Compile Include="SDK\Fusion5vs5GamemodeDescriptor.cs" />
-    <Compile Include="SDK\Fusion5vs5Spawnpoint.cs" />
     <Compile Include="SDK\Internal\Fusion5vs5GamemodeBehaviour.cs" />
     <Compile Include="SDK\Invoke5vs5UltEvent.cs" />
     <Compile Include="ServerOperationsImpl.cs" />
     <Compile Include="Server\IServerOperations.cs" />
     <Compile Include="Server\Server.cs" />
+    <Compile Include="SpawnPointRepresentation.cs" />
     <Compile Include="TeamRepresentation.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
