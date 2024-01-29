@@ -20,6 +20,7 @@ using SLZ.Marrow.Warehouse;
 using SLZ.Rig;
 using SLZ.Utilities;
 using SwipezGamemodeLib.Spawning;
+using SwipezGamemodeLib.Utilities;
 using TMPro;
 using UltEvents;
 using UnityEngine;
@@ -72,7 +73,8 @@ namespace Fusion5vs5Gamemode
         private SpawnPointRepresentation _LocalSpawnPoint;
         private float _LocalPlayerVelocity;
         private string _LastLocalAvatar;
-        private RigManager _LocalRagdoll;
+        private bool _LocalPlayerFrozen;
+
 
         private GameStates _State = GameStates.Unknown;
 
@@ -301,6 +303,8 @@ namespace Fusion5vs5Gamemode
                 );
             }
 
+            _LastLocalAvatar = RigData.GetAvatarBarcode();
+            
             FusionPlayer.SetPlayerVitality(1.0f);
 
             SceneStreamer.Reload();
@@ -386,8 +390,6 @@ namespace Fusion5vs5Gamemode
 
             TriggerLasersEvents.OnTriggerEntered += OnTriggerEntered;
             TriggerLasersEvents.OnTriggerExited += OnTriggerExited;
-
-            _LastLocalAvatar = RigData.GetAvatarBarcode();
         }
 
         protected override void OnMetadataChanged(string key, string value)
@@ -485,6 +487,24 @@ namespace Fusion5vs5Gamemode
                     SetSpectator();
                 }
             }
+            else if (eventName.StartsWith(Events.Freeze))
+            {
+                string _player = eventName.Split('.')[1];
+                PlayerId player = GetPlayerFromValue(_player);
+                if (player.IsSelf)
+                {
+                    Freeze();
+                }
+            }
+            else if (eventName.StartsWith(Events.UnFreeze))
+            {
+                string _player = eventName.Split('.')[1];
+                PlayerId player = GetPlayerFromValue(_player);
+                if (player.IsSelf)
+                {
+                    UnFreeze();
+                }
+            }
             else if (eventName.StartsWith(Events.TeamWonRound))
             {
                 Fusion5vs5GamemodeTeams _team = GetTeamFromValue(eventName.Split('.')[1]);
@@ -535,6 +555,7 @@ namespace Fusion5vs5Gamemode
                 if (player.IsSelf)
                 {
                     SetSpectator();
+                    Notify("Joined Spectators", "You can join a team from <UI component>"); // TODO 
                 }
             }
             else if (eventName.StartsWith(Events.SpawnPointAssigned))
@@ -617,7 +638,7 @@ namespace Fusion5vs5Gamemode
         {
             Log();
             // TODO decide how to implement team switching
-            Notify("Warmup begun", "Select a team from UI component");
+            Notify("Warmup begun", "You're a spectator. Select a team from UI component", 10f);
 
             SDKIntegration.InvokeWarmupPhaseStarted();
         }
@@ -628,16 +649,12 @@ namespace Fusion5vs5Gamemode
             // TODO decide how to implement weapon buying
             Notify("Buy Phase", "Buy weapons from <UI component>");
 
-            Freeze();
-
             SDKIntegration.InvokeBuyPhaseStarted();
         }
 
         private void StartPlayPhase()
         {
             Log();
-
-            UnFreeze();
 
             if (_LocalTeam == _DefendingTeam)
             {
@@ -784,6 +801,14 @@ namespace Fusion5vs5Gamemode
             // TODO Implement UI changes
         }
 
+        private void OnRoundNumberChanged(int newScore)
+        {
+            Log(newScore);
+            // TODO Implement UI changes
+
+            SDKIntegration.InvokeNewRoundStarted(newScore);
+        }
+
         private TeamRepresentation GetTeamRepresentation(Fusion5vs5GamemodeTeams team)
         {
             Log(team);
@@ -802,25 +827,30 @@ namespace Fusion5vs5Gamemode
             return _CounterTerroristTeamName;
         }
 
-        private void OnRoundNumberChanged(int newScore)
+        /// <summary>
+        /// Spawns a ragdoll of the local player's avatar where they stand, without actually subtracting their score and
+        /// enters the player into the spectating avatar, where they then are taken away their visibility and
+        /// interactability, as described in <see cref="SetSpectator"/>. Typically called when player changes their team
+        /// mid-round, outside of the buy phase or warmup phase.
+        /// </summary>
+        private void KillPlayer()
         {
-            Log(newScore);
-            // TODO Implement UI changes
-
-            SDKIntegration.InvokeNewRoundStarted(newScore);
+            Log();
+            SpawnRagdoll();
+            SetSpectator();
         }
 
         /// <summary>
-        /// Used to respawn the local dead player inside of their spawnpoint. Usually called once the BuyPhase begins.
-        /// Dead players leave their spectator avatar, get placed inside the their spawnpoint and are given back
-        /// their visibility to other clients and interactability with the world.
+        /// Used to respawn the local dead player inside of their spawn point. Usually called once the BuyPhase begins.
+        /// Dead players leave their spectator avatar, get placed inside the their spawn point and are given back
+        /// their visibility to other players as well as their interactability with the world.
         /// </summary>
-        /// <param name="player"></param>
-        /// <param name="team"></param>
         private void RevivePlayer()
         {
             Log();
             // TODO give back interactability and visibility
+            FusionPlayerExtended.worldInteractable = true;
+            FusionPlayerExtended.canSendDamage = true;
             FusionPlayer.ClearAvatarOverride();
             RigManager rm = RigData.RigReferences.RigManager;
             rm.SwapAvatarCrate(_LastLocalAvatar, true);
@@ -828,26 +858,31 @@ namespace Fusion5vs5Gamemode
         }
 
         /// <summary>
-        /// Spawns a ragdoll of the local player's avatar where they stand, without actually subtracting their score and
-        /// enters the player into the spectating avatar, where they then are taken away their visibility and
-        /// interactability. Typically called when player changes their team mid-round, outside of BuyPhase.
+        /// Enters the local player into the spectator avatar, where they're then taken away of their visibility from
+        /// other players and their interactability with the world. Typically called by other methods such as
+        /// <see cref="KillPlayer"/>, or after the player has left any team and joined the spectators.
         /// </summary>
-        /// <param name="player"></param>
-        private void KillPlayer()
+        private void SetSpectator()
         {
             Log();
-            // TODO spawn player's ragdoll where the player avatar is without killing player
-            SpawnRagdoll();
-            SetSpectator();
+            // TODO remove interactability and visibility
+            FusionPlayerExtended.worldInteractable = false;
+            FusionPlayerExtended.canSendDamage = false;
+            string avatarBarcode = RigData.GetAvatarBarcode();
+            if (!avatarBarcode.Equals(BoneLib.CommonBarcodes.Avatars.PolyBlank))
+            {
+                _LastLocalAvatar = avatarBarcode;
+            }
+
+            MelonLogger.Msg($"_LastLocalAvatar changed to {_LastLocalAvatar}.");
+            FusionPlayer.SetAvatarOverride(FusionAvatar.POLY_BLANK_BARCODE);
         }
 
         /// <summary>
         /// Simply teleports the local player into their team's spawnpoint. Typically used to re-position all players once
-        /// the round ends and buy phase starts. Dead players however wont be Respawned, they will be revived with
+        /// the round ends and buy phase starts. Dead players however wont be respawned, they will be revived with
         /// <see cref="RevivePlayer"/>. Using <see cref="RespawnPlayer"/> with dead players leads to undefined behaviour.
         /// </summary>
-        /// <param name="player"></param>
-        /// <param name="team"></param>
         private void RespawnPlayer()
         {
             Log();
@@ -855,19 +890,9 @@ namespace Fusion5vs5Gamemode
         }
 
         /// <summary>
-        /// Enters the local player into the spectator avatar, where they're then taken away their visibility from
-        /// other players and their interactability with the world. Typically called by other methods such as
-        /// <see cref="KillPlayer"/>, or after the player has left any team and joined the Spectators.
+        /// Uses the SwipezGamemodeLib to spawn a ragdoll of the local player's avatar where they stand and removes the
+        /// ragdoll after three seconds.
         /// </summary>
-        /// <param name="player"></param>
-        private void SetSpectator()
-        {
-            Log();
-            // TODO remove interactibility and visibility
-            _LastLocalAvatar = RigData.GetAvatarBarcode();
-            FusionPlayer.SetAvatarOverride(FusionAvatar.POLY_BLANK_BARCODE);
-        }
-
         private void SpawnRagdoll()
         {
             RigManager rm = RigData.RigReferences.RigManager;
@@ -880,23 +905,39 @@ namespace Fusion5vs5Gamemode
                     despawnTimer.AutoReset = false;
                     despawnTimer.Elapsed += (s, e) =>
                     {
-                        GameObject.Destroy(_rm);
+                        GameObject.Destroy(_rm.gameObject);
                         despawnTimer.Dispose();
                     };
                     despawnTimer.Start();
                 });
         }
 
+        /// <summary>
+        /// Uses LabFusion's API to set a new multiplayer spawn point using a <see cref="Transform"/>.
+        /// </summary>
+        /// <param name="transform"><see cref="Transform"/> object where the new spawn point will be</param>
         private void SetFusionSpawnPoint(Transform transform)
         {
             Log(transform);
             FusionPlayer.SetSpawnPoints(transform);
         }
 
+        /// <summary>
+        /// Uses LabFusion's API to set a new multiplayer spawn point using a <see cref="Vector3"/> as position and
+        /// eulerAngles, spawns a new GameObject to get ahold of a <see cref="Transform"/> object and feeds that into
+        /// <see cref="FusionPlayer.SetSpawnPoints"/>.
+        /// </summary>
+        /// <param name="pos"><see cref="Vector3"/> world space position of the new spawn point</param>
+        /// <param name="rot"><see cref="Vector3"/> eulerAngles of the new spawn point</param>
         private void SetFusionSpawnPoint(Vector3 pos, Vector3 rot)
         {
             Log(pos, rot);
-            GameObject go = new GameObject("Fusion 5vs5 Spawn Point");
+            GameObject go = GameObject.Find("Fusion 5vs5 Spawn Point");
+            if (go == null)
+            {
+                go = new GameObject("Fusion 5vs5 Spawn Point");
+            }
+
             go.transform.position = pos;
             go.transform.localEulerAngles = rot;
             FusionPlayer.SetSpawnPoints(go.transform);
@@ -905,11 +946,12 @@ namespace Fusion5vs5Gamemode
         private void Freeze()
         {
             Log();
-            RemapRig rig = RigData.RigReferences.RigManager.remapHeptaRig;
-            rig.jumpEnabled = false;
-
-            if (rig.maxVelocity > 0.001f)
+            if (!_LocalPlayerFrozen)
             {
+                _LocalPlayerFrozen = true;
+                RemapRig rig = RigData.RigReferences.RigManager.remapHeptaRig;
+                rig.jumpEnabled = false;
+
                 _LocalPlayerVelocity = rig.maxVelocity;
                 rig.maxVelocity = 0.001f;
             }
@@ -921,6 +963,7 @@ namespace Fusion5vs5Gamemode
             RemapRig rig = RigData.RigReferences.RigManager.remapHeptaRig;
             rig.jumpEnabled = true;
             rig.maxVelocity = _LocalPlayerVelocity;
+            _LocalPlayerFrozen = false;
         }
 
         private void OnBuyZoneEntered()

@@ -37,7 +37,7 @@ namespace Fusion5vs5Gamemode.Server
 
         // For defusing game mode, this would be Counter Terrorist Team. For hostage, this would be Terrorist Team.
         public Team
-            DefendingTeam { get; set; } // Will be set from the SDK with the Fusion5vs5Descriptor component
+            DefendingTeam { get; } // Will be set from the SDK with the Fusion5vs5Descriptor component
 
         // States
         private GameStates _State = GameStates.Unknown;
@@ -263,12 +263,28 @@ namespace Fusion5vs5Gamemode.Server
 
                 if (_State == GameStates.Warmup || _State == GameStates.BuyPhase)
                 {
-                    SetPlayerState(player, PlayerStates.Alive);
-                    RespawnPlayer(player);
+                    if (GetPlayerState(player) == PlayerStates.Spectator)
+                    {
+                        SetPlayerState(player, PlayerStates.Alive);
+                        RevivePlayer(player);
+                    }
+                    else
+                    {
+                        RespawnPlayer(player);
+                    }
                 }
                 else if (_State == GameStates.PlayPhase || _State == GameStates.RoundEndPhase)
                 {
-                    KillPlayer(player);
+                    PlayerStates state = GetPlayerState(player);
+                    if (state == PlayerStates.Spectator)
+                    {
+                        SetPlayerState(player, PlayerStates.Dead);
+                    }
+                    else if (state == PlayerStates.Alive)
+                    {
+                        SetPlayerState(player, PlayerStates.Dead);
+                        KillPlayer(player);
+                    }
                 }
             }
         }
@@ -400,6 +416,7 @@ namespace Fusion5vs5Gamemode.Server
             ResetScore(player);
 
             SetPlayerState(player, PlayerStates.Spectator);
+            Operations.InvokeTrigger($"{Events.SetSpectator}.{player.LongId}");
         }
 
         private void ResetScore(PlayerId player)
@@ -419,12 +436,15 @@ namespace Fusion5vs5Gamemode.Server
 
             SetPlayerKills(killer, GetPlayerKills(Operations.Metadata, killer) + 1);
             SetPlayerDeaths(killed, GetPlayerDeaths(Operations.Metadata, killed) + 1);
-            SetPlayerState(killed, PlayerStates.Dead);
 
             Operations.InvokeTrigger($"{Events.PlayerKilledPlayer}.{killer.LongId}.{killed.LongId}");
 
+
             if (_State == GameStates.PlayPhase || _State == GameStates.BuyPhase)
+            {
+                SetPlayerState(killed, PlayerStates.Dead);
                 DetermineTeamWon(killed);
+            }
         }
 
         private void Suicide(PlayerId playerId, object weapon)
@@ -435,12 +455,14 @@ namespace Fusion5vs5Gamemode.Server
                 return;
 
             SetPlayerDeaths(playerId, GetPlayerDeaths(Operations.Metadata, playerId) + 1);
-            SetPlayerState(playerId, PlayerStates.Dead);
 
             Operations.InvokeTrigger($"{Events.PlayerSuicide}.{playerId.LongId}");
 
             if (_State == GameStates.PlayPhase || _State == GameStates.BuyPhase)
+            {
+                SetPlayerState(playerId, PlayerStates.Dead);
                 DetermineTeamWon(playerId);
+            }
         }
 
         private void DyingAnimationCompleted(PlayerId playerId)
@@ -498,7 +520,6 @@ namespace Fusion5vs5Gamemode.Server
         private void KillPlayer(PlayerId player)
         {
             Log(player);
-            SetPlayerState(player, PlayerStates.Dead);
             Operations.InvokeTrigger($"{Events.KillPlayer}.{player.LongId}");
         }
 
@@ -550,63 +571,60 @@ namespace Fusion5vs5Gamemode.Server
             // In case anyone else calls NextState(), stop the timer manually
             _GameTimer.Stop();
             GameStates oldState = _State;
-            if (NetworkInfo.IsServer)
+            // We update the old state to the next one and dispatch it to everyone else
+            GameStates nextState = GameStates.Unknown;
+            switch (oldState)
             {
-                // We update the old state to the next one and dispatch it to everyone else
-                GameStates nextState = GameStates.Unknown;
-                switch (oldState)
-                {
-                    case GameStates.Unknown:
-                        nextState = GameStates.Warmup;
-                        break;
-                    case GameStates.Warmup:
-                        nextState = GameStates.BuyPhase;
-                        break;
-                    case GameStates.BuyPhase:
-                        nextState = GameStates.PlayPhase;
-                        break;
-                    case GameStates.PlayPhase:
-                        if (EnableHalftime && HalfOfRoundsPlayed())
-                        {
-                            nextState = GameStates.MatchHalfPhase;
-                        }
-                        else if (IsRoundNumberMaxedOut() || IsTeamScoreMaxedOut())
-                        {
-                            nextState = GameStates.MatchEndPhase;
-                        }
-                        else
-                        {
-                            nextState = GameStates.RoundEndPhase;
-                        }
+                case GameStates.Unknown:
+                    nextState = GameStates.Warmup;
+                    break;
+                case GameStates.Warmup:
+                    nextState = GameStates.BuyPhase;
+                    break;
+                case GameStates.BuyPhase:
+                    nextState = GameStates.PlayPhase;
+                    break;
+                case GameStates.PlayPhase:
+                    if (EnableHalftime && HalfOfRoundsPlayed())
+                    {
+                        nextState = GameStates.MatchHalfPhase;
+                    }
+                    else if (IsRoundNumberMaxedOut() || IsTeamScoreMaxedOut())
+                    {
+                        nextState = GameStates.MatchEndPhase;
+                    }
+                    else
+                    {
+                        nextState = GameStates.RoundEndPhase;
+                    }
 
-                        break;
-                    case GameStates.RoundEndPhase:
-                        nextState = GameStates.BuyPhase;
-                        break;
-                    case GameStates.MatchHalfPhase:
-                        nextState = GameStates.BuyPhase;
-                        break;
-                }
-
-                // This means the game is over
-                if (nextState == GameStates.Unknown)
-                    return;
-
-                if (TimeLimits.TryGetValue(nextState, out int timeLimit))
-                {
-                    _GameTimer.Interval = timeLimit * 1000;
-                    _GameTimer.Start();
-                }
-                else
-                {
-                    MelonLogger.Warning($"Could not find a time limit for {nextState}!");
-                }
-
-                _State = nextState;
-
-                OnStateChanged(_State);
-                Operations.InvokeTrigger($"{Events.NewGameState}.{nextState.ToString()}");
+                    break;
+                case GameStates.RoundEndPhase:
+                    nextState = GameStates.BuyPhase;
+                    break;
+                case GameStates.MatchHalfPhase:
+                    nextState = GameStates.BuyPhase;
+                    break;
             }
+
+            // This means the game is over
+            if (nextState == GameStates.Unknown)
+                return;
+
+            if (TimeLimits.TryGetValue(nextState, out int timeLimit))
+            {
+                _GameTimer.Interval = timeLimit * 1000;
+                _GameTimer.Start();
+            }
+            else
+            {
+                MelonLogger.Warning($"Could not find a time limit for {nextState}!");
+            }
+
+            _State = nextState;
+
+            OnStateChanged(_State);
+            Operations.InvokeTrigger($"{Events.NewGameState}.{nextState.ToString()}");
         }
 
         private void OnStateChanged(GameStates newState)
@@ -635,12 +653,31 @@ namespace Fusion5vs5Gamemode.Server
                                 {
                                     RespawnPlayer(player);
                                 }
+
+                                if (playerState != PlayerStates.Spectator)
+                                {
+                                    Operations.InvokeTrigger($"{Events.Freeze}.{player.LongId}");
+                                }
                             }
                         }
                     }
 
                     break;
                 case GameStates.PlayPhase:
+                    foreach (var team in _Teams)
+                    {
+                        foreach (var player in team.Players)
+                        {
+                            bool ok = _PlayerStatesDict.TryGetValue(player, out PlayerStates playerState);
+                            if (ok)
+                            {
+                                if (playerState != PlayerStates.Spectator)
+                                {
+                                    Operations.InvokeTrigger($"{Events.UnFreeze}.{player.LongId}");
+                                }
+                            }
+                        }
+                    }
                     break;
                 case GameStates.RoundEndPhase:
                     break;
