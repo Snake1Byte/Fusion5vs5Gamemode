@@ -88,6 +88,9 @@ python "D:\Windows User\Documents\Python\a\Copy Files.py" "C:\Users\Snek\source\
     <Reference Include="UnhollowerBaseLib">
       <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\BONELAB\MelonLoader\Managed\UnhollowerBaseLib.dll</HintPath>
     </Reference>
+    <Reference Include="UniTask">
+      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\BONELAB\MelonLoader\Managed\UniTask.dll</HintPath>
+    </Reference>
     <Reference Include="Unity.TextMeshPro">
       <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\BONELAB\MelonLoader\Managed\Unity.TextMeshPro.dll</HintPath>
     </Reference>
@@ -123,6 +126,7 @@ python "D:\Windows User\Documents\Python\a\Copy Files.py" "C:\Users\Snek\source\
     <Compile Include="Server\Server.cs" />
     <Compile Include="SpawnPointRepresentation.cs" />
     <Compile Include="TeamRepresentation.cs" />
+    <Compile Include="TriggerLasersExtension.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

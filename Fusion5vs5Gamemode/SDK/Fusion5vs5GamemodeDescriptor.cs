@@ -62,19 +62,6 @@ namespace Fusion5vs5Gamemode.SDK
             Cache.Remove(gameObject);
         }
 
-        public void OnBuyZoneEntered()
-        {
-            BuyZoneEntered.Invoke();
-        }
-
-        public void OnBuyZoneExited()
-        {
-            BuyZoneExited.Invoke();
-        }
-
-        public Action BuyZoneEntered;
-        public Action BuyZoneExited;
-
         public static class Defaults
         {
             public static readonly Fusion5vs5GamemodeTeams DefendingTeam = Fusion5vs5GamemodeTeams.CounterTerrorists;

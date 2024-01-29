@@ -28,8 +28,10 @@ namespace Fusion5vs5Gamemode.Server
         private Team CounterTerroristTeam { get; }
         private Team TerroristTeam { get; }
         private readonly Team[] _Teams;
-        
-        private Dictionary<PlayerId, SpawnPointRepresentation> _SpawnPoints = new Dictionary<PlayerId, SpawnPointRepresentation>();
+
+        private Dictionary<PlayerId, SpawnPointRepresentation> _SpawnPoints =
+            new Dictionary<PlayerId, SpawnPointRepresentation>();
+
         private List<SpawnPointRepresentation> _CounterTerroristSpawnPoints;
         private List<SpawnPointRepresentation> _TerroristSpawnPoints;
 
@@ -39,9 +41,10 @@ namespace Fusion5vs5Gamemode.Server
 
         // States
         private GameStates _State = GameStates.Unknown;
-        private GameStates State => _State;
 
         private Timer _GameTimer;
+
+        private List<PlayerId> _PlayersInBuyZone = new List<PlayerId>();
 
         private Dictionary<GameStates, int> TimeLimits { get; }
 
@@ -163,10 +166,13 @@ namespace Fusion5vs5Gamemode.Server
                 {
                     PlayerKilled(otherPlayer, playerId, null);
                 }
-
-                if (type == PlayerActionType.DYING)
+                else if (type == PlayerActionType.DYING)
                 {
                     Suicide(playerId, null);
+                }
+                else if (type == PlayerActionType.DEATH)
+                {
+                    DyingAnimationCompleted(playerId);
                 }
             }
         }
@@ -193,6 +199,18 @@ namespace Fusion5vs5Gamemode.Server
                 SetPlayerState(player, PlayerStates.Spectator);
                 Operations.InvokeTrigger($"{Events.PlayerSpectates}.{player?.LongId}");
             }
+            else if (request.StartsWith(ClientRequest.BuyZoneEntered))
+            {
+                string[] info = request.Split('.');
+                PlayerId player = GetPlayerFromValue(info[1]);
+                OnPlayerEnteredBuyZone(player);
+            }
+            else if (request.StartsWith(ClientRequest.BuyZoneExited))
+            {
+                string[] info = request.Split('.');
+                PlayerId player = GetPlayerFromValue(info[1]);
+                OnPlayerExitedBuyZone(player);
+            }
         }
 
         private void OnTimeElapsed()
@@ -213,6 +231,14 @@ namespace Fusion5vs5Gamemode.Server
             }
 
             player.TryGetDisplayName(out var playerName);
+
+            if (_State == GameStates.MatchHalfPhase || _State == GameStates.MatchEndPhase)
+            {
+                MelonLogger.Warning(
+                    $"Player {playerName} tried to switch teams during MatchHalfPhase/MatchEndPhase, aborting.");
+                return;
+            }
+
             Team currentTeam = GetTeam(player);
             if (currentTeam != selectedTeam)
             {
@@ -232,13 +258,13 @@ namespace Fusion5vs5Gamemode.Server
                 }
 
                 selectedTeam.AddPlayer(player);
-                SetPlayerState(player, PlayerStates.Alive);
                 Operations.SetMetadata(GetTeamMemberKey(player), selectedTeam.TeamName);
                 MelonLogger.Msg($"Player {playerName} switched teams to {selectedTeam.TeamName}");
 
                 if (_State == GameStates.Warmup || _State == GameStates.BuyPhase)
                 {
-                    RespawnPlayerLocal(player);
+                    SetPlayerState(player, PlayerStates.Alive);
+                    RespawnPlayer(player);
                 }
                 else if (_State == GameStates.PlayPhase || _State == GameStates.RoundEndPhase)
                 {
@@ -397,10 +423,7 @@ namespace Fusion5vs5Gamemode.Server
 
             Operations.InvokeTrigger($"{Events.PlayerKilledPlayer}.{killer.LongId}.{killed.LongId}");
 
-            if (_State != GameStates.Warmup)
-                Operations.InvokeTrigger($"{Events.SetSpectator}.{killed.LongId}");
-
-            if (_State == GameStates.PlayPhase)
+            if (_State == GameStates.PlayPhase || _State == GameStates.BuyPhase)
                 DetermineTeamWon(killed);
         }
 
@@ -416,11 +439,14 @@ namespace Fusion5vs5Gamemode.Server
 
             Operations.InvokeTrigger($"{Events.PlayerSuicide}.{playerId.LongId}");
 
+            if (_State == GameStates.PlayPhase || _State == GameStates.BuyPhase)
+                DetermineTeamWon(playerId);
+        }
+
+        private void DyingAnimationCompleted(PlayerId playerId)
+        {
             if (_State != GameStates.Warmup)
                 Operations.InvokeTrigger($"{Events.SetSpectator}.{playerId.LongId}");
-
-            if (_State == GameStates.PlayPhase)
-                DetermineTeamWon(playerId);
         }
 
         private void SetPlayerKills(PlayerId killer, int kills)
@@ -466,8 +492,7 @@ namespace Fusion5vs5Gamemode.Server
         {
             Log(player);
             SetPlayerState(player, PlayerStates.Alive);
-            Team team = GetTeam(player);
-            Operations.InvokeTrigger($"{Events.RevivePlayer}.{player.LongId}.{team.TeamName}");
+            Operations.InvokeTrigger($"{Events.RevivePlayer}.{player.LongId}");
         }
 
         private void KillPlayer(PlayerId player)
@@ -480,15 +505,30 @@ namespace Fusion5vs5Gamemode.Server
         private void RespawnPlayer(PlayerId player)
         {
             Log(player);
-            Team team = GetTeam(player);
-            Operations.InvokeTrigger($"{Events.RespawnPlayer}.{player.LongId}.{team.TeamName}");
+            Operations.InvokeTrigger($"{Events.RespawnPlayer}.{player.LongId}");
         }
 
-        private void RespawnPlayerLocal(PlayerId player)
+        private void OnPlayerEnteredBuyZone(PlayerId player)
         {
             Log(player);
-            Team team = GetTeam(player);
-            Operations.InvokeTrigger($"{Events.RespawnPlayerLocal}.{player.LongId}");
+            if (!_PlayersInBuyZone.Contains(player))
+            {
+                _PlayersInBuyZone.Add(player);
+            }
+        }
+
+        private void OnPlayerExitedBuyZone(PlayerId player)
+        {
+            Log(player);
+            _PlayerStatesDict.TryGetValue(player, out var state);
+            if (_State == GameStates.BuyPhase && state == PlayerStates.Alive)
+            {
+                RespawnPlayer(player);
+            }
+            else
+            {
+                _PlayersInBuyZone.Remove(player);
+            }
         }
 
         // Internal
@@ -593,7 +633,7 @@ namespace Fusion5vs5Gamemode.Server
                                 }
                                 else if (playerState == PlayerStates.Alive)
                                 {
-                                    RespawnPlayerLocal(player);
+                                    RespawnPlayer(player);
                                 }
                             }
                         }
@@ -714,10 +754,7 @@ namespace Fusion5vs5Gamemode.Server
 
                 foreach (var team in _Teams)
                 {
-                    foreach (var player in team.Players)
-                    {
-                        team.RemovePlayer(player);
-                    }
+                    team.Players.Clear();
                 }
             }
             finally
@@ -737,7 +774,7 @@ namespace Fusion5vs5Gamemode.Server
             }
         }
 
-        private enum PlayerStates
+        public enum PlayerStates
         {
             Spectator = 0,
             Alive = 1,

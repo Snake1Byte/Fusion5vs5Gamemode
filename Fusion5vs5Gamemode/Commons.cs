@@ -19,7 +19,7 @@ namespace Fusion5vs5Gamemode
             // Metadata
             public const string DefaultPrefix = "Fusion5vs5";
             public const string TeamKey = DefaultPrefix + ".Team";
-            public const string TeamScoreKey = TeamKey + ".Score";
+            public const string TeamScoreKey = DefaultPrefix + ".Score";
             public const string PlayerKillsKey = DefaultPrefix + ".Kills";
             public const string PlayerDeathsKey = DefaultPrefix + ".Deaths";
             public const string PlayerAssistsKey = DefaultPrefix + ".Assists";
@@ -33,7 +33,6 @@ namespace Fusion5vs5Gamemode
             public const string KillPlayer = "KillPlayer";
             public const string RevivePlayer = "RevivePlayer";
             public const string RespawnPlayer = "RespawnPlayer";
-            public const string RespawnPlayerLocal = "RespawnPlayerLocal";
             public const string SetSpectator = "SetSpectator";
             public const string TeamWonRound = "TeamWonRound";
             public const string TeamWonGame = "TeamWonGame";
@@ -52,6 +51,8 @@ namespace Fusion5vs5Gamemode
             public const string ChangeTeams = "ChangeTeams";
             public const string JoinSpectator = "JoinSpectator";
             public const string Buy = "Buy";
+            public const string BuyZoneEntered = "BuyZoneEntered";
+            public const string BuyZoneExited = "BuyZoneExited";
         }
 
         public static string GetTeamMemberKey(PlayerId id)

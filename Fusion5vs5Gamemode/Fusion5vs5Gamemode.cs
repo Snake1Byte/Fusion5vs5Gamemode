@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Timers;
@@ -17,6 +18,8 @@ using SLZ.Bonelab;
 using SLZ.Marrow.SceneStreaming;
 using SLZ.Marrow.Warehouse;
 using SLZ.Rig;
+using SLZ.Utilities;
+using SwipezGamemodeLib.Spawning;
 using TMPro;
 using UltEvents;
 using UnityEngine;
@@ -66,10 +69,12 @@ namespace Fusion5vs5Gamemode
         private string _TerroristTeamName;
 
         private Fusion5vs5GamemodeTeams _LocalTeam;
+        private SpawnPointRepresentation _LocalSpawnPoint;
         private float _LocalPlayerVelocity;
+        private string _LastLocalAvatar;
+        private RigManager _LocalRagdoll;
 
         private GameStates _State = GameStates.Unknown;
-        private SpawnPointRepresentation _LocalSpawnPoint;
 
         private MenuCategory _Menu;
         private FunctionElement _DefendingTeamSelection;
@@ -281,15 +286,6 @@ namespace Fusion5vs5Gamemode
                 terroristSpawnPoints.Add(t);
             }
 
-            // TriggerLasers CTBuyZoneTrigger =
-            //     _Descriptor.CounterTerroristBuyZone.gameObject.AddComponent<TriggerLasers>();
-            // CTBuyZoneTrigger.LayerFilter = 2147483647;
-            // CTBuyZoneTrigger.onlyTriggerOnPlayer = true;
-            //
-            // TriggerLasers TBuyZoneTrigger = _Descriptor.TerroristBuyZone.gameObject.AddComponent<TriggerLasers>();
-            // TBuyZoneTrigger.LayerFilter = 2147483647;
-            // TBuyZoneTrigger.onlyTriggerOnPlayer = true;
-
             if (NetworkInfo.IsServer)
             {
                 Server = new Server.Server(
@@ -329,17 +325,69 @@ namespace Fusion5vs5Gamemode
             _Menu.Elements.Insert(0, _EnableHalfTimeSetting);
             _Menu.Elements.Insert(0, _MaxRoundsSetting);
 
-
-            if (_Descriptor != null)
-            {
-                _Descriptor.BuyZoneEntered -= OnBuyZoneEntered;
-                _Descriptor.BuyZoneExited -= OnBuyZoneExited;
-            }
+            TriggerLasersEvents.OnTriggerEntered -= OnTriggerEntered;
+            TriggerLasersEvents.OnTriggerExited -= OnTriggerExited;
 
             FusionPlayer.ClearPlayerVitality();
 
+            _Descriptor = null;
+            _CounterTerroristTeamName = null;
+            _TerroristTeamName = null;
+            _LocalPlayerVelocity = 0;
+            _LastLocalAvatar = null;
+            _State = GameStates.Unknown;
+
             _DebugText = null;
             Dump();
+        }
+
+        private void OnFusion5vs5Started()
+        {
+            if (_Debug)
+            {
+                if (FusionSceneManager.Level._barcode.Equals("Snek.csoffice.Level.Csoffice"))
+                {
+                    _DebugText = GameObject.Find("debugText");
+                }
+            }
+
+            foreach (var firstComponent in Fusion5vs5GamemodeDescriptor.Cache.Components)
+            {
+                _Descriptor = firstComponent;
+                break;
+            }
+
+            if (String.IsNullOrEmpty(_Descriptor.CounterTerroristTeamName))
+            {
+                _Descriptor.CounterTerroristTeamName = Fusion5vs5GamemodeDescriptor.Defaults.CounterTerroristTeamName;
+            }
+
+            if (String.IsNullOrEmpty(_Descriptor.TerroristTeamName))
+            {
+                _Descriptor.TerroristTeamName = Fusion5vs5GamemodeDescriptor.Defaults.TerroristTeamName;
+            }
+
+            if (_Descriptor.DefaultAvatar == null)
+            {
+                _Descriptor.DefaultAvatar = Fusion5vs5GamemodeDescriptor.Defaults.DefaultAvatar;
+            }
+
+            _CounterTerroristTeamName = _Descriptor.CounterTerroristTeamName;
+            _TerroristTeamName = _Descriptor.TerroristTeamName;
+
+            TriggerLasers CTBuyZoneTrigger =
+                _Descriptor.CounterTerroristBuyZone.gameObject.AddComponent<TriggerLasers>();
+            CTBuyZoneTrigger.LayerFilter = 134217728;
+            CTBuyZoneTrigger.onlyTriggerOnPlayer = true;
+
+            TriggerLasers TBuyZoneTrigger = _Descriptor.TerroristBuyZone.gameObject.AddComponent<TriggerLasers>();
+            TBuyZoneTrigger.LayerFilter = 134217728;
+            TBuyZoneTrigger.onlyTriggerOnPlayer = true;
+
+            TriggerLasersEvents.OnTriggerEntered += OnTriggerEntered;
+            TriggerLasersEvents.OnTriggerExited += OnTriggerExited;
+
+            _LastLocalAvatar = RigData.GetAvatarBarcode();
         }
 
         protected override void OnMetadataChanged(string key, string value)
@@ -352,7 +400,8 @@ namespace Fusion5vs5Gamemode
                 MelonLogger.Msg($"5vs5: OnMetadataChanged called: {key} {value}");
                 UpdateDebugText();
             }
-            else if (key.StartsWith(Commons.Metadata.TeamKey))
+
+            if (key.StartsWith(Commons.Metadata.TeamKey))
             {
                 string _player = key.Split('.')[2];
                 PlayerId player = GetPlayerFromValue(_player);
@@ -378,6 +427,12 @@ namespace Fusion5vs5Gamemode
                 PlayerId killed = GetPlayerFromValue(_killed);
                 killer.TryGetDisplayName(out string killerName);
                 killed.TryGetDisplayName(out string killedName);
+                if (killed.IsSelf && _State != GameStates.Warmup)
+                {
+                    RigManager rm = RigData.RigReferences.RigManager;
+                    SetFusionSpawnPoint(rm.physicsRig.m_pelvis);
+                }
+
                 SDKIntegration.InvokePlayerKilledAnotherPlayer(killerName, killedName, killed.IsSelf);
             }
             else if (eventName.StartsWith(Events.PlayerSuicide))
@@ -385,6 +440,12 @@ namespace Fusion5vs5Gamemode
                 string _player = eventName.Split('.')[1];
                 PlayerId player = GetPlayerFromValue(_player);
                 player.TryGetDisplayName(out string playerName);
+                if (player.IsSelf && _State != GameStates.Warmup)
+                {
+                    RigManager rm = RigData.RigReferences.RigManager;
+                    SetFusionSpawnPoint(rm.physicsRig.m_pelvis);
+                }
+
                 SDKIntegration.InvokePlayerSuicide(playerName, player.IsSelf);
             }
             else if (eventName.StartsWith(Events.KillPlayer))
@@ -392,40 +453,37 @@ namespace Fusion5vs5Gamemode
                 string _player = eventName.Split('.')[1];
                 PlayerId player = GetPlayerFromValue(_player);
 
-                KillPlayer(player);
+                if (player.IsSelf)
+                {
+                    KillPlayer();
+                }
             }
             else if (eventName.StartsWith(Events.RevivePlayer))
-            {
-                string _player = eventName.Split('.')[1];
-                string _team = eventName.Split('.')[2];
-                PlayerId player = GetPlayerFromValue(_player);
-                Fusion5vs5GamemodeTeams team = GetTeamFromValue(_team);
-
-                RevivePlayer(player, team);
-            }
-            else if (eventName.StartsWith(Events.RespawnPlayer))
-            {
-                string _player = eventName.Split('.')[1];
-                string _team = eventName.Split('.')[2];
-                PlayerId player = GetPlayerFromValue(_player);
-                Fusion5vs5GamemodeTeams team = GetTeamFromValue(_team);
-
-                RespawnPlayer(player, team);
-            }
-            else if (eventName.StartsWith(Events.RespawnPlayerLocal))
             {
                 string _player = eventName.Split('.')[1];
                 PlayerId player = GetPlayerFromValue(_player);
                 if (player.IsSelf)
                 {
-                    RespawnPlayerLocal();
+                    RevivePlayer();
+                }
+            }
+            else if (eventName.StartsWith(Events.RespawnPlayer))
+            {
+                string _player = eventName.Split('.')[1];
+                PlayerId player = GetPlayerFromValue(_player);
+                if (player.IsSelf)
+                {
+                    RespawnPlayer();
                 }
             }
             else if (eventName.StartsWith(Events.SetSpectator))
             {
                 string _player = eventName.Split('.')[1];
                 PlayerId player = GetPlayerFromValue(_player);
-                SetSpectator(player);
+                if (player.IsSelf)
+                {
+                    SetSpectator();
+                }
             }
             else if (eventName.StartsWith(Events.TeamWonRound))
             {
@@ -474,8 +532,10 @@ namespace Fusion5vs5Gamemode
             {
                 string _player = eventName.Split('.')[1];
                 PlayerId player = GetPlayerFromValue(_player);
-
-                SetSpectator(player);
+                if (player.IsSelf)
+                {
+                    SetSpectator();
+                }
             }
             else if (eventName.StartsWith(Events.SpawnPointAssigned))
             {
@@ -483,7 +543,7 @@ namespace Fusion5vs5Gamemode
                 PlayerId player = GetPlayerFromValue(_player);
                 if (player.IsSelf)
                 {
-                    var regex = new Regex(Regex.Escape($"SpawnPointAssigned.{_player}."));
+                    Regex regex = new Regex(Regex.Escape($"SpawnPointAssigned.{_player}."));
                     string _transform = regex.Replace(eventName, "", 1);
                     string[] split = _transform.Split(',');
                     Vector3 pos = new Vector3(float.Parse(split[0]), float.Parse(split[1]), float.Parse(split[2]));
@@ -493,48 +553,12 @@ namespace Fusion5vs5Gamemode
                     spawnPoint.eulerAngles = rot;
                     _LocalSpawnPoint = new SpawnPointRepresentation
                         { position = spawnPoint.position, eulerAngles = spawnPoint.eulerAngles };
+
+                    SetFusionSpawnPoint(pos, rot);
                 }
             }
 
             UpdateDebugText(eventName);
-        }
-
-        private void OnFusion5vs5Started()
-        {
-            if (_Debug)
-            {
-                if (FusionSceneManager.Level._barcode.Equals("Snek.csoffice.Level.Csoffice"))
-                {
-                    _DebugText = GameObject.Find("debugText");
-                }
-            }
-
-            foreach (var firstComponent in Fusion5vs5GamemodeDescriptor.Cache.Components)
-            {
-                _Descriptor = firstComponent;
-                break;
-            }
-
-            if (String.IsNullOrEmpty(_Descriptor.CounterTerroristTeamName))
-            {
-                _Descriptor.CounterTerroristTeamName = Fusion5vs5GamemodeDescriptor.Defaults.CounterTerroristTeamName;
-            }
-
-            if (String.IsNullOrEmpty(_Descriptor.TerroristTeamName))
-            {
-                _Descriptor.TerroristTeamName = Fusion5vs5GamemodeDescriptor.Defaults.TerroristTeamName;
-            }
-
-            if (_Descriptor.DefaultAvatar == null)
-            {
-                _Descriptor.DefaultAvatar = Fusion5vs5GamemodeDescriptor.Defaults.DefaultAvatar;
-            }
-
-            _CounterTerroristTeamName = _Descriptor.CounterTerroristTeamName;
-            _TerroristTeamName = _Descriptor.TerroristTeamName;
-
-            _Descriptor.BuyZoneEntered += OnBuyZoneEntered;
-            _Descriptor.BuyZoneExited += OnBuyZoneExited;
         }
 
         protected override void OnUpdate()
@@ -787,77 +811,113 @@ namespace Fusion5vs5Gamemode
         }
 
         /// <summary>
-        /// Used to respawn dead players inside of their spawnpoints. Usually called once the BuyPhase begins.
+        /// Used to respawn the local dead player inside of their spawnpoint. Usually called once the BuyPhase begins.
         /// Dead players leave their spectator avatar, get placed inside the their spawnpoint and are given back
         /// their visibility to other clients and interactability with the world.
         /// </summary>
         /// <param name="player"></param>
         /// <param name="team"></param>
-        private void RevivePlayer(PlayerId player, Fusion5vs5GamemodeTeams team)
+        private void RevivePlayer()
         {
-            Log(player, team);
-            // TODO change avatar from spectator avatar, place player in spawn, give back interactability and visibility
+            Log();
+            // TODO give back interactability and visibility
+            FusionPlayer.ClearAvatarOverride();
+            RigManager rm = RigData.RigReferences.RigManager;
+            rm.SwapAvatarCrate(_LastLocalAvatar, true);
+            RespawnPlayer();
         }
 
         /// <summary>
-        /// Spawns a ragdoll of the player's avatar where they stand, without actually subtracting their score and
+        /// Spawns a ragdoll of the local player's avatar where they stand, without actually subtracting their score and
         /// enters the player into the spectating avatar, where they then are taken away their visibility and
         /// interactability. Typically called when player changes their team mid-round, outside of BuyPhase.
         /// </summary>
         /// <param name="player"></param>
-        private void KillPlayer(PlayerId player)
+        private void KillPlayer()
         {
-            Log(player);
+            Log();
             // TODO spawn player's ragdoll where the player avatar is without killing player
-            SetSpectator(player);
+            SpawnRagdoll();
+            SetSpectator();
         }
 
         /// <summary>
-        /// Simply teleports the player into their team's spawnpoint. Typically used to re-position all players once
+        /// Simply teleports the local player into their team's spawnpoint. Typically used to re-position all players once
         /// the round ends and buy phase starts. Dead players however wont be Respawned, they will be revived with
         /// <see cref="RevivePlayer"/>. Using <see cref="RespawnPlayer"/> with dead players leads to undefined behaviour.
         /// </summary>
         /// <param name="player"></param>
         /// <param name="team"></param>
-        private void RespawnPlayer(PlayerId player, Fusion5vs5GamemodeTeams team)
-        {
-            Log(player, team);
-            // TODO Simply teleport player to his team's spawn
-        }
-
-        /// <summary>
-        /// Like <see cref="RespawnPlayer"/> but as a convenience method to just teleport the local player to his spawnpoint.
-        /// The spawnpoint information is cached inside of a private field.
-        /// </summary>
-        private void RespawnPlayerLocal()
+        private void RespawnPlayer()
         {
             Log();
-            RigManager rig = RigData.RigReferences.RigManager;
             FusionPlayer.Teleport(_LocalSpawnPoint.position, _LocalSpawnPoint.eulerAngles);
         }
 
         /// <summary>
-        /// Enters the player into the spectator avatar, where they're then taken away their visibility from
+        /// Enters the local player into the spectator avatar, where they're then taken away their visibility from
         /// other players and their interactability with the world. Typically called by other methods such as
         /// <see cref="KillPlayer"/>, or after the player has left any team and joined the Spectators.
         /// </summary>
         /// <param name="player"></param>
-        private void SetSpectator(PlayerId player)
+        private void SetSpectator()
         {
-            Log(player);
-            // TODO change to spectator avatar, remove interactibility and visibility
+            Log();
+            // TODO remove interactibility and visibility
+            _LastLocalAvatar = RigData.GetAvatarBarcode();
+            FusionPlayer.SetAvatarOverride(FusionAvatar.POLY_BLANK_BARCODE);
+        }
+
+        private void SpawnRagdoll()
+        {
+            RigManager rm = RigData.RigReferences.RigManager;
+            Transform transform = rm.physicsRig.m_pelvis;
+            SpawnManager.SpawnRagdoll(_LastLocalAvatar, transform.position, transform.rotation,
+                (_rm) =>
+                {
+                    Timer despawnTimer = new Timer();
+                    despawnTimer.Interval = 3000;
+                    despawnTimer.AutoReset = false;
+                    despawnTimer.Elapsed += (s, e) =>
+                    {
+                        GameObject.Destroy(_rm);
+                        despawnTimer.Dispose();
+                    };
+                    despawnTimer.Start();
+                });
+        }
+
+        private void SetFusionSpawnPoint(Transform transform)
+        {
+            Log(transform);
+            FusionPlayer.SetSpawnPoints(transform);
+        }
+
+        private void SetFusionSpawnPoint(Vector3 pos, Vector3 rot)
+        {
+            Log(pos, rot);
+            GameObject go = new GameObject("Fusion 5vs5 Spawn Point");
+            go.transform.position = pos;
+            go.transform.localEulerAngles = rot;
+            FusionPlayer.SetSpawnPoints(go.transform);
         }
 
         private void Freeze()
         {
+            Log();
             RemapRig rig = RigData.RigReferences.RigManager.remapHeptaRig;
             rig.jumpEnabled = false;
-            _LocalPlayerVelocity = rig.maxVelocity;
-            rig.maxVelocity = 0.001f;
+
+            if (rig.maxVelocity > 0.001f)
+            {
+                _LocalPlayerVelocity = rig.maxVelocity;
+                rig.maxVelocity = 0.001f;
+            }
         }
 
         private void UnFreeze()
         {
+            Log();
             RemapRig rig = RigData.RigReferences.RigManager.remapHeptaRig;
             rig.jumpEnabled = true;
             rig.maxVelocity = _LocalPlayerVelocity;
@@ -865,15 +925,70 @@ namespace Fusion5vs5Gamemode
 
         private void OnBuyZoneEntered()
         {
+            Log();
             MelonLogger.Msg("Buy Zone entered.");
+            RequestToServer($"{ClientRequest.BuyZoneEntered}.{PlayerIdManager.LocalId.LongId}");
         }
 
         private void OnBuyZoneExited()
         {
+            Log();
             MelonLogger.Msg("Buy Zone exited.");
-            if (_State == GameStates.BuyPhase)
+            RequestToServer($"{ClientRequest.BuyZoneExited}.{PlayerIdManager.LocalId.LongId}");
+        }
+
+        private void OnTriggerEntered(TriggerLasers obj)
+        {
+            Log(obj);
+
+            // Prevent a NullReferenceException inside of TriggerLasers component
+            TriggerLasers ctTrigger = _Descriptor.CounterTerroristBuyZone.gameObject.GetComponent<TriggerLasers>();
+            TriggerLasers tTrigger = _Descriptor.TerroristBuyZone.gameObject.GetComponent<TriggerLasers>();
+            if (ctTrigger != null && ctTrigger.GetInstanceID() == obj.GetInstanceID())
             {
-                RespawnPlayerLocal();
+                ctTrigger.obj_SpecificTrigger = ctTrigger.gameObject;
+            }
+
+            if (tTrigger != null && tTrigger.GetInstanceID() == obj.GetInstanceID())
+            {
+                tTrigger.obj_SpecificTrigger = tTrigger.gameObject;
+            }
+
+            if (_LocalTeam == Fusion5vs5GamemodeTeams.CounterTerrorists)
+            {
+                if (ctTrigger != null && ctTrigger.GetInstanceID() == obj.GetInstanceID())
+                {
+                    OnBuyZoneEntered();
+                }
+            }
+            else if (_LocalTeam == Fusion5vs5GamemodeTeams.Terrorists)
+            {
+                if (tTrigger != null && tTrigger.GetInstanceID() == obj.GetInstanceID())
+                {
+                    tTrigger.obj_SpecificTrigger = _Descriptor.TerroristBuyZone.gameObject;
+                    OnBuyZoneEntered();
+                }
+            }
+        }
+
+        private void OnTriggerExited(TriggerLasers obj)
+        {
+            Log(obj);
+            if (_LocalTeam == Fusion5vs5GamemodeTeams.CounterTerrorists)
+            {
+                TriggerLasers trigger = _Descriptor.CounterTerroristBuyZone.gameObject.GetComponent<TriggerLasers>();
+                if (trigger != null && trigger.GetInstanceID() == obj.GetInstanceID())
+                {
+                    OnBuyZoneExited();
+                }
+            }
+            else
+            {
+                TriggerLasers trigger = _Descriptor.TerroristBuyZone.gameObject.GetComponent<TriggerLasers>();
+                if (trigger != null && trigger.GetInstanceID() == obj.GetInstanceID())
+                {
+                    OnBuyZoneExited();
+                }
             }
         }
 

@@ -61,6 +61,13 @@ namespace Fusion5vs5Gamemode.SDK.Editor
                     MessageType.Warning);
             }
 
+            if (behaviour.CounterTerroristBuyZone != null && behaviour.CounterTerroristBuyZone.gameObject.layer != 27)
+            {
+                EditorGUILayout.HelpBox(
+                    "The Counter Terrorist buy zone's GameObject must have its layer set to \"Trigger\", otherwise this buy zone will not work!",
+                    MessageType.Error);
+            }
+
             if (behaviour.TerroristBuyZone == null)
             {
                 EditorGUILayout.HelpBox("Terrorist buy zone Collider must be set!", MessageType.Error);
@@ -70,6 +77,13 @@ namespace Fusion5vs5Gamemode.SDK.Editor
                 EditorGUILayout.HelpBox(
                     "Warning, the Terrorist buy zone is not set to \"Is Trigger\". Players will collide with this buy zone!",
                     MessageType.Warning);
+            }
+            
+            if (behaviour.TerroristBuyZone != null && behaviour.TerroristBuyZone.gameObject.layer != 27)
+            {
+                EditorGUILayout.HelpBox(
+                    "The Terrorist buy zone's GameObject must have its layer set to \"Trigger\", otherwise this buy zone will not work!",
+                    MessageType.Error);
             }
 
             if (behaviour.CounterTerroristBuyZone != null &&
