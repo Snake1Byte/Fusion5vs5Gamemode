@@ -139,7 +139,7 @@ namespace Fusion5vs5Gamemode.Server
             MelonLogger.Msg("5vs5 Mode: OnPlayerLeave Called.");
 
             Team team = GetTeam(playerId);
-            team.RemovePlayer(playerId);
+            team.Players.Remove(playerId);
             _PlayerStatesDict.Remove(playerId);
             Operations.InvokeTrigger($"{Events.PlayerLeft}.{playerId.LongId}.{team.TeamName}");
         }
@@ -195,7 +195,7 @@ namespace Fusion5vs5Gamemode.Server
                 if (team == null)
                     return;
                 _SpawnPoints.Remove(player);
-                team.RemovePlayer(player);
+                team.Players.Remove(player);
                 SetPlayerState(player, PlayerStates.Spectator);
                 Operations.InvokeTrigger($"{Events.PlayerSpectates}.{player?.LongId}");
             }
@@ -254,19 +254,32 @@ namespace Fusion5vs5Gamemode.Server
 
                 if (currentTeam != null)
                 {
-                    currentTeam.RemovePlayer(player);
+                    currentTeam.Players.Remove(player);
                 }
 
-                selectedTeam.AddPlayer(player);
+                selectedTeam.Players.Add(player);
                 Operations.SetMetadata(GetTeamMemberKey(player), selectedTeam.TeamName);
                 MelonLogger.Msg($"Player {playerName} switched teams to {selectedTeam.TeamName}");
 
-                if (_State == GameStates.Warmup || _State == GameStates.BuyPhase)
+                if (_State == GameStates.Warmup)
                 {
                     if (GetPlayerState(player) == PlayerStates.Spectator)
                     {
                         SetPlayerState(player, PlayerStates.Alive);
                         RevivePlayer(player);
+                    }
+                    else
+                    {
+                        RespawnPlayer(player);
+                    }
+                }
+                else if (_State == GameStates.BuyPhase)
+                {
+                    if (GetPlayerState(player) == PlayerStates.Spectator)
+                    {
+                        SetPlayerState(player, PlayerStates.Alive);
+                        RevivePlayer(player);
+                        FreezePlayer(player);
                     }
                     else
                     {
@@ -529,6 +542,16 @@ namespace Fusion5vs5Gamemode.Server
             Operations.InvokeTrigger($"{Events.RespawnPlayer}.{player.LongId}");
         }
 
+        private void FreezePlayer(PlayerId player)
+        {
+            Operations.InvokeTrigger($"{Events.Freeze}.{player.LongId}");
+        }
+        
+        private void UnFreezePlayer(PlayerId player)
+        {
+            Operations.InvokeTrigger($"{Events.UnFreeze}.{player.LongId}");
+        }
+
         private void OnPlayerEnteredBuyZone(PlayerId player)
         {
             Log(player);
@@ -656,7 +679,7 @@ namespace Fusion5vs5Gamemode.Server
 
                                 if (playerState != PlayerStates.Spectator)
                                 {
-                                    Operations.InvokeTrigger($"{Events.Freeze}.{player.LongId}");
+                                    FreezePlayer(player);
                                 }
                             }
                         }
@@ -673,11 +696,12 @@ namespace Fusion5vs5Gamemode.Server
                             {
                                 if (playerState != PlayerStates.Spectator)
                                 {
-                                    Operations.InvokeTrigger($"{Events.UnFreeze}.{player.LongId}");
+                                    UnFreezePlayer(player);
                                 }
                             }
                         }
                     }
+
                     break;
                 case GameStates.RoundEndPhase:
                     break;

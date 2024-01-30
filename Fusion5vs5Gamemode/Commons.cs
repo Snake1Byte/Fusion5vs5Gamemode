@@ -57,6 +57,8 @@ namespace Fusion5vs5Gamemode
             public const string BuyZoneExited = "BuyZoneExited";
         }
 
+        public const string SpectatorAvatar = BoneLib.CommonBarcodes.Avatars.PolyBlank;
+
         public static string GetTeamMemberKey(PlayerId id)
         {
             Log(id);

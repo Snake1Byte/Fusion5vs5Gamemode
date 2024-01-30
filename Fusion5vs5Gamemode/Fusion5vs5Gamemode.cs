@@ -304,7 +304,7 @@ namespace Fusion5vs5Gamemode
             }
 
             _LastLocalAvatar = RigData.GetAvatarBarcode();
-            
+
             FusionPlayer.SetPlayerVitality(1.0f);
 
             SceneStreamer.Reload();
@@ -869,13 +869,13 @@ namespace Fusion5vs5Gamemode
             FusionPlayerExtended.worldInteractable = false;
             FusionPlayerExtended.canSendDamage = false;
             string avatarBarcode = RigData.GetAvatarBarcode();
-            if (!avatarBarcode.Equals(BoneLib.CommonBarcodes.Avatars.PolyBlank))
+            if (!avatarBarcode.Equals(SpectatorAvatar))
             {
                 _LastLocalAvatar = avatarBarcode;
             }
 
             MelonLogger.Msg($"_LastLocalAvatar changed to {_LastLocalAvatar}.");
-            FusionPlayer.SetAvatarOverride(FusionAvatar.POLY_BLANK_BARCODE);
+            FusionPlayer.SetAvatarOverride(SpectatorAvatar);
         }
 
         /// <summary>
@@ -948,12 +948,12 @@ namespace Fusion5vs5Gamemode
             Log();
             if (!_LocalPlayerFrozen)
             {
-                _LocalPlayerFrozen = true;
                 RemapRig rig = RigData.RigReferences.RigManager.remapHeptaRig;
                 rig.jumpEnabled = false;
-
                 _LocalPlayerVelocity = rig.maxVelocity;
                 rig.maxVelocity = 0.001f;
+
+                _LocalPlayerFrozen = true;
             }
         }
 
@@ -963,6 +963,7 @@ namespace Fusion5vs5Gamemode
             RemapRig rig = RigData.RigReferences.RigManager.remapHeptaRig;
             rig.jumpEnabled = true;
             rig.maxVelocity = _LocalPlayerVelocity;
+            
             _LocalPlayerFrozen = false;
         }
 
