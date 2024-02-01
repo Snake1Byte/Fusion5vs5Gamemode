@@ -13,10 +13,12 @@ namespace Fusion5vs5Gamemode
         public static Action<TriggerLasers> OnTriggerExited;
     }
 
-    [HarmonyPatch(typeof(TriggerLasers), "OnTriggerEnter")]
-    public static class TriggerLasersEnterPatch
+    [HarmonyPatch(typeof(TriggerLasers))]
+    public static class TriggerLasersPatch
     {
-        public static void Postfix(TriggerLasers __instance, Collider other)
+        [HarmonyPostfix]
+        [HarmonyPatch(nameof(TriggerLasers.OnTriggerEnter))]
+        public static void OnTriggerEnter(TriggerLasers __instance, Collider other)
         {
             if (other != null && other.CompareTag("Player"))
             {
@@ -32,12 +34,10 @@ namespace Fusion5vs5Gamemode
                 }
             }
         }
-    }
 
-    [HarmonyPatch(typeof(TriggerLasers), "OnTriggerExit")]
-    public static class TriggerLasersExitPatch
-    {
-        public static void Postfix(TriggerLasers __instance, Collider other)
+        [HarmonyPostfix]
+        [HarmonyPatch(nameof(TriggerLasers.OnTriggerExit))]
+        public static void OnTriggerExit(TriggerLasers __instance, Collider other)
         {
             if (other != null && other.CompareTag("Player"))
             {

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Timers;
@@ -16,19 +15,13 @@ using LabFusion.Utilities;
 using MelonLoader;
 using SLZ.Bonelab;
 using SLZ.Marrow.SceneStreaming;
-using SLZ.Marrow.Warehouse;
 using SLZ.Rig;
-using SLZ.Utilities;
 using SwipezGamemodeLib.Spawning;
 using SwipezGamemodeLib.Utilities;
 using TMPro;
-using UltEvents;
 using UnityEngine;
-using UnityEngine.Events;
 using static Fusion5vs5Gamemode.Commons;
 using static Fusion5vs5Gamemode.Fusion5vs5CustomModule;
-using Action = Il2CppSystem.Action;
-using PersistentCall = UltEvents.PersistentCall;
 
 namespace Fusion5vs5Gamemode
 {
@@ -963,7 +956,7 @@ namespace Fusion5vs5Gamemode
             RemapRig rig = RigData.RigReferences.RigManager.remapHeptaRig;
             rig.jumpEnabled = true;
             rig.maxVelocity = _LocalPlayerVelocity;
-            
+
             _LocalPlayerFrozen = false;
         }
 
