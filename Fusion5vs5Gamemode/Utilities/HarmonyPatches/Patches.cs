@@ -13,7 +13,6 @@ using UnityEngine;
 
 namespace Fusion5vs5Gamemode
 {
-    //[HarmonyPatch(typeof(Player_Health))]
     public static class Patches
     {
         
@@ -172,9 +171,6 @@ namespace Fusion5vs5Gamemode
                 MelonLogger.Msg($"Exception: {e}");
             }
         }
-
-        [HarmonyPrefix]
-        [HarmonyPatch(nameof(Player_Health.OnReceivedDamage))]
         public static void OnReceivedDamage(Attack attack, BodyPart part)
         {
             MelonLogger.Msg($"Shot body part was {part}.");

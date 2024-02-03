@@ -7,7 +7,7 @@ using MelonLoader;
 using Fusion5vs5Gamemode;
 using LabFusion.SDK.Modules;
 
-[assembly: MelonInfo(typeof(MainClass), "Fusion 5vs5 Gamemode", "1.0.0", "Snake1Byte")]
+[assembly: MelonInfo(typeof(MainClass), MainClass.Name, MainClass.Version, MainClass.Author)]
 [assembly: MelonGame("Stress Level Zero", "BONELAB")]
 
 // General Information about an assembly is controlled through the following
