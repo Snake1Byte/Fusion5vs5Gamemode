@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace Fusion5vs5Gamemode
+namespace Fusion5vs5Gamemode.Shared
 {
     public struct SpawnPointRepresentation
     {

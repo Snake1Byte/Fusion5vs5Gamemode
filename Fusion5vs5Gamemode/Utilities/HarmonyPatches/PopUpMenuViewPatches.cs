@@ -6,7 +6,7 @@ using SLZ.Rig;
 using SLZ.UI;
 using UnityEngine;
 
-namespace Fusion5vs5Gamemode
+namespace Fusion5vs5Gamemode.Utilities
 {
     [HarmonyPatch(typeof(PopUpMenuView))]
     public static class PopUpMenuViewPatches
@@ -19,8 +19,6 @@ namespace Fusion5vs5Gamemode
         public static void Activate(PopUpMenuView __instance, Transform headTransform, Transform rootTransform, UIControllerInput controllerInput,
             BaseController controller)
         {
-            MelonLogger.Msg("PageView.Activate called");
-
             if (OnPopUpMenuActivate != null && __instance.GetComponentInParent<RigManager>() == RigData.RigReferences.RigManager)
             {
                 OnPopUpMenuActivate.Invoke(headTransform, rootTransform, controllerInput, controller);
@@ -31,8 +29,6 @@ namespace Fusion5vs5Gamemode
         [HarmonyPatch(nameof(PopUpMenuView.Deactivate))]
         public static void Deactivate()
         {
-            MelonLogger.Msg("PageView.Deactivate called");
-
             if (OnPopUpMenuDeactivate != null)
             {
                 OnPopUpMenuDeactivate.Invoke();

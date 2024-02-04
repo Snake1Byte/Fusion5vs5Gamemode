@@ -6,6 +6,8 @@ using System.Timers;
 using BoneLib.BoneMenu.Elements;
 using Fusion5vs5Gamemode.SDK;
 using Fusion5vs5Gamemode.Server;
+using Fusion5vs5Gamemode.Shared;
+using Fusion5vs5Gamemode.Utilities;
 using LabFusion.Data;
 using LabFusion.Extensions;
 using LabFusion.Network;
@@ -20,10 +22,10 @@ using SwipezGamemodeLib.Spawning;
 using SwipezGamemodeLib.Utilities;
 using TMPro;
 using UnityEngine;
-using static Fusion5vs5Gamemode.Commons;
-using static Fusion5vs5Gamemode.Fusion5vs5CustomModule;
+using static Fusion5vs5Gamemode.Shared.Commons;
+using static Fusion5vs5Gamemode.Shared.Fusion5vs5CustomModule;
 
-namespace Fusion5vs5Gamemode
+namespace Fusion5vs5Gamemode.Client
 {
     public class Fusion5vs5Gamemode : Gamemode
     {
@@ -72,9 +74,6 @@ namespace Fusion5vs5Gamemode
         private GameStates _State = GameStates.Unknown;
 
         private MenuCategory _Menu;
-        private FunctionElement _DefendingTeamSelection;
-        private FunctionElement _AttackingTeamSelection;
-        private FunctionElement _JoinSpectatorSelection;
         private IntElement _MaxRoundsSetting;
         private BoolElement _EnableHalfTimeSetting;
         private BoolElement _EnableLateJoiningSetting;
@@ -94,15 +93,6 @@ namespace Fusion5vs5Gamemode
             base.OnBoneMenuCreated(category);
 
             _Menu = category;
-
-            //TODO Add custom settings for this gamemode 
-            _DefendingTeamSelection =
-                _Menu.CreateFunctionElement($"Join Defending Team", Color.white, RequestJoinDefenders);
-
-            _AttackingTeamSelection =
-                _Menu.CreateFunctionElement("Join Attacking Team", Color.white, RequestJoinAttackers);
-
-            _JoinSpectatorSelection = _Menu.CreateFunctionElement("Join Spectators", Color.white, RequestJoinSpectator);
 
             _MaxRoundsSetting = category.CreateIntElement("Maximum rounds", Color.white, MaxRounds, 1, 1, 1000000,
                 i =>
@@ -167,11 +157,6 @@ namespace Fusion5vs5Gamemode
             category.CreateBoolElement("Enable round music", Color.white, _EnableMusic, b => _EnableMusic = b);
 
             category.CreateBoolElement("Debug", Color.white, _Debug, e => _Debug = e);
-
-            // Only show these while the game is running, until I add a better way to switch teams
-            category.Elements.RemoveInstance(_DefendingTeamSelection);
-            category.Elements.RemoveInstance(_AttackingTeamSelection);
-            category.Elements.RemoveInstance(_JoinSpectatorSelection);
         }
 
         public override void OnGamemodeRegistered()
@@ -205,9 +190,6 @@ namespace Fusion5vs5Gamemode
             Log();
             base.OnStartGamemode();
             MelonLogger.Msg("5vs5 Mode: OnStartGamemode Called.");
-            _Menu.Elements.Insert(0, _JoinSpectatorSelection);
-            _Menu.Elements.Insert(0, _DefendingTeamSelection);
-            _Menu.Elements.Insert(0, _AttackingTeamSelection);
             _Menu.Elements.RemoveInstance(_EnableHalfTimeSetting);
             _Menu.Elements.RemoveInstance(_MaxRoundsSetting);
 
@@ -316,14 +298,28 @@ namespace Fusion5vs5Gamemode
                 Server.Dispose();
             }
 
-            _Menu.Elements.RemoveInstance(_JoinSpectatorSelection);
-            _Menu.Elements.RemoveInstance(_DefendingTeamSelection);
-            _Menu.Elements.RemoveInstance(_AttackingTeamSelection);
             _Menu.Elements.Insert(0, _EnableHalfTimeSetting);
             _Menu.Elements.Insert(0, _MaxRoundsSetting);
 
+            try
+            {
+                GameObject.Destroy(_Descriptor.TerroristBuyZone.gameObject.GetComponent<TriggerLasers>());
+                GameObject.Destroy(_Descriptor.CounterTerroristBuyZone.gameObject.GetComponent<TriggerLasers>());
+            }
+            catch
+            {
+                // ignored
+            }
+
             TriggerLasersEvents.OnTriggerEntered -= OnTriggerEntered;
             TriggerLasersEvents.OnTriggerExited -= OnTriggerExited;
+
+            BuyMenu.OnBuyMenuItemClicked -= OnBuyMenuItemClicked;
+
+            TeamSelectionMenu.RemoveTeamsMenu();
+            TeamSelectionMenu.OnDefendersSelected -= RequestJoinDefenders;
+            TeamSelectionMenu.OnAttackersSelected -= RequestJoinAttackers;
+            TeamSelectionMenu.OnSpectatorsSelected -= RequestJoinSpectator;
 
             FusionPlayer.ClearPlayerVitality();
 
@@ -383,6 +379,13 @@ namespace Fusion5vs5Gamemode
 
             TriggerLasersEvents.OnTriggerEntered += OnTriggerEntered;
             TriggerLasersEvents.OnTriggerExited += OnTriggerExited;
+
+            BuyMenu.OnBuyMenuItemClicked += OnBuyMenuItemClicked;
+
+            TeamSelectionMenu.AddTeamsMenu();
+            TeamSelectionMenu.OnDefendersSelected += RequestJoinDefenders;
+            TeamSelectionMenu.OnAttackersSelected += RequestJoinAttackers;
+            TeamSelectionMenu.OnSpectatorsSelected += RequestJoinSpectator;
         }
 
         protected override void OnMetadataChanged(string key, string value)
@@ -894,7 +897,7 @@ namespace Fusion5vs5Gamemode
                 (_rm) =>
                 {
                     Timer despawnTimer = new Timer();
-                    despawnTimer.Interval = 3000;
+                    despawnTimer.Interval = 5000;
                     despawnTimer.AutoReset = false;
                     despawnTimer.Elapsed += (s, e) =>
                     {
@@ -960,10 +963,17 @@ namespace Fusion5vs5Gamemode
             _LocalPlayerFrozen = false;
         }
 
+
+        private void OnBuyMenuItemClicked(string barcode)
+        {
+            RequestToServer($"{ClientRequest.BuyItem}.{PlayerIdManager.LocalId.LongId}.{barcode}");
+        }
+
         private void OnBuyZoneEntered()
         {
             Log();
             MelonLogger.Msg("Buy Zone entered.");
+            BuyMenu.AddBuyMenu();
             RequestToServer($"{ClientRequest.BuyZoneEntered}.{PlayerIdManager.LocalId.LongId}");
         }
 
@@ -971,6 +981,7 @@ namespace Fusion5vs5Gamemode
         {
             Log();
             MelonLogger.Msg("Buy Zone exited.");
+            BuyMenu.RemoveBuyMenu();
             RequestToServer($"{ClientRequest.BuyZoneExited}.{PlayerIdManager.LocalId.LongId}");
         }
 
@@ -978,11 +989,11 @@ namespace Fusion5vs5Gamemode
         {
             Log(obj);
 
-            // Prevent a NullReferenceException inside of TriggerLasers component
             TriggerLasers ctTrigger = _Descriptor.CounterTerroristBuyZone.gameObject.GetComponent<TriggerLasers>();
             TriggerLasers tTrigger = _Descriptor.TerroristBuyZone.gameObject.GetComponent<TriggerLasers>();
             if (ctTrigger != null && ctTrigger.GetInstanceID() == obj.GetInstanceID())
             {
+                // Prevent a NullReferenceException inside of TriggerLasers component
                 ctTrigger.obj_SpecificTrigger = ctTrigger.gameObject;
             }
 
@@ -1101,6 +1112,11 @@ namespace Fusion5vs5Gamemode
 
         private void UpdateDebugText(string eventTriggerName)
         {
+            if (_DebugText == null)
+            {
+                return;
+            }
+            
             TextMeshProUGUI eventTriggerText =
                 _DebugText.transform.Find("EventTriggerText").GetComponent<TextMeshProUGUI>();
             eventTriggerText.text = eventTriggerText.text + "\n" + eventTriggerName;

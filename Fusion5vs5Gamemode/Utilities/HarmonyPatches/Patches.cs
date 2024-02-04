@@ -11,7 +11,7 @@ using SLZ.Marrow.Data;
 using UnityEngine;
 
 
-namespace Fusion5vs5Gamemode
+namespace Fusion5vs5Gamemode.Utilities
 {
     public static class Patches
     {

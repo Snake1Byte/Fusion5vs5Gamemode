@@ -118,6 +118,7 @@ python "D:\Windows User\Documents\Python\a\Copy Files.py" "C:\Users\Snek\source\
     <Compile Include="Client\Fusion5vs5Gamemode.cs" />
     <Compile Include="Client\SDKIntegration.cs" />
     <Compile Include="Client\TeamRepresentation.cs" />
+    <Compile Include="Client\TeamSelectionMenu.cs" />
     <Compile Include="MainClass.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SDK\Editor\Fusion5vs5GameModeEditor.cs" />
@@ -134,7 +135,8 @@ python "D:\Windows User\Documents\Python\a\Copy Files.py" "C:\Users\Snek\source\
     <Compile Include="Utilities\HarmonyPatches\PageViewPatches.cs" />
     <Compile Include="Utilities\HarmonyPatches\Patches.cs" />
     <Compile Include="Utilities\HarmonyPatches\PopUpMenuViewPatches.cs" />
-    <Compile Include="Utilities\HarmonyPatches\TriggerLasersExtension.cs" />
+    <Compile Include="Utilities\HarmonyPatches\SpawnResponseMessagePatches.cs" />
+    <Compile Include="Utilities\HarmonyPatches\TriggerLasersPatches.cs" />
     <Compile Include="Utilities\IServerOperations.cs" />
     <Compile Include="Utilities\RadialMenu.cs" />
   </ItemGroup>

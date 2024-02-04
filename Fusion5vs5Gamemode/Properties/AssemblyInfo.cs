@@ -1,11 +1,10 @@
 ﻿using System;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.ComTypes;
-using MelonLoader;
 using Fusion5vs5Gamemode;
+using Fusion5vs5Gamemode.Shared;
 using LabFusion.SDK.Modules;
+using MelonLoader;
 
 [assembly: MelonInfo(typeof(MainClass), MainClass.Name, MainClass.Version, MainClass.Author)]
 [assembly: MelonGame("Stress Level Zero", "BONELAB")]

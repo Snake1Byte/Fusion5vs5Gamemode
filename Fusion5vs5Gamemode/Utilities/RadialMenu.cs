@@ -1,32 +1,31 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
-using Il2CppSystem;
-using Il2CppSystem.Collections;
-using Il2CppSystem.Text;
 using LabFusion.Data;
-using LabFusion.Extensions;
 using SLZ.Rig;
 using SLZ.UI;
-using Steamworks.Ugc;
-using UltEvents;
 using UnityEngine;
-using IEnumerable = System.Collections.IEnumerable;
-using IEnumerator = System.Collections.IEnumerator;
+using static Fusion5vs5Gamemode.Shared.Commons;
 
-namespace Fusion5vs5Gamemode
+namespace Fusion5vs5Gamemode.Utilities
 {
     public class RadialMenu
     {
-        private static List<PageItem> RootPageItems { get; set; }
-        private static RadialSubMenu RootMenu { get; set; }
         private static PopUpMenuView _PopUpMenu;
         private static Page _HomePage;
         internal static ActivatePopupParams? LastActivatePopupParams;
-        internal static RadialSubMenu LastRootMenu;
-        internal static PageItem _RootMenuAsPageItem;
+
+        internal static List<RadialSubMenu> RootMenus = new List<RadialSubMenu>();
+
+        internal static Dictionary<RadialSubMenu, PageItem> _RootMenusAsPageItems =
+            new Dictionary<RadialSubMenu, PageItem>();
+
+        internal static List<PageItem> RootPageBackup = new List<PageItem>();
+
         internal static bool InRootLevel = true;
 
-        public static void Initialize()
+        static RadialMenu()
         {
             PopUpMenuViewPatches.OnPopUpMenuActivate += OnPopUpMenuActivate;
         }
@@ -34,6 +33,7 @@ namespace Fusion5vs5Gamemode
         private static void OnPopUpMenuActivate(Transform headTransform, Transform rootTransform,
             UIControllerInput controllerInput, BaseController controller)
         {
+            Log(headTransform, rootTransform, controllerInput, controller);
             LastActivatePopupParams = new ActivatePopupParams
             {
                 headTransform = headTransform,
@@ -47,29 +47,43 @@ namespace Fusion5vs5Gamemode
                 RigManager rm = RigData.RigReferences.RigManager;
                 _PopUpMenu = rm.uiRig.popUpMenu;
                 _HomePage = _PopUpMenu.radialPageView.m_HomePage;
-
-                CheckRootMenuChanged();
             }
+
+            RenderRootMenus();
         }
 
-        private static void CheckRootMenuChanged()
+        private static void RenderRootMenus()
         {
-            if (RootMenu == null || LastRootMenu == RootMenu || !InRootLevel)
+            Log();
+            if (RootMenus.Count == 0 || !InRootLevel)
             {
                 return;
             }
 
-            PageItem item = new PageItem(RootMenu.Name, RootMenu.Direction,
-                (System.Action)(() => { OnSubMenuClicked(RootMenu); }));
-            _HomePage.items.Add(item);
-            _RootMenuAsPageItem = item;
+            if (RootPageBackup.Count == 0)
+            {
+                RootPageBackup.AddRange(_HomePage.items.ToArray());
+            }
 
-            RootPageItems = new List<PageItem>(_HomePage.items.ToArray());
-            LastRootMenu = RootMenu;
+            foreach (var rootMenu in RootMenus)
+            {
+                if (!_RootMenusAsPageItems.TryGetValue(rootMenu, out PageItem pageItem))
+                {
+                    PageItem item = new PageItem(rootMenu.Name, rootMenu.Direction,
+                        (Action)(() => { OnSubMenuClicked(rootMenu); }));
+                    _RootMenusAsPageItems.Add(rootMenu, item);
+                    _HomePage.items.Add(item);
+                }
+                else
+                {
+                    _HomePage.items.Add(pageItem);
+                }
+            }
         }
 
         private static void OnSubMenuClicked(RadialSubMenu subMenuClicked)
         {
+            Log(subMenuClicked);
             DeactivateRadialMenu();
 
             InRootLevel = false;
@@ -79,7 +93,7 @@ namespace Fusion5vs5Gamemode
                 if (element is RadialSubMenu subMenu)
                 {
                     PageItem item = new PageItem(element.Name, element.Direction,
-                        (System.Action)(() => { OnSubMenuClicked(subMenu); }));
+                        (Action)(() => { OnSubMenuClicked(subMenu); }));
                     _HomePage.items.Add(item);
                 }
                 else if (element is RadialMenuItem menuItem)
@@ -95,6 +109,7 @@ namespace Fusion5vs5Gamemode
 
         private static void ActivateRadialMenu()
         {
+            Log();
             if (LastActivatePopupParams.HasValue)
             {
                 ActivatePopupParams arg = LastActivatePopupParams.Value;
@@ -104,6 +119,7 @@ namespace Fusion5vs5Gamemode
 
         private static void DeactivateRadialMenu()
         {
+            Log();
             ActivatePopupParams? arg = null;
             if (LastActivatePopupParams.HasValue)
             {
@@ -119,45 +135,47 @@ namespace Fusion5vs5Gamemode
         }
 
         /// <summary>
-        /// Places a custom menu on the west side of the radial menu, placing it where usually the "Utilities" menu
-        /// would be when holding the spawn gun. If the spawn gun is being held, the menu created here will be
-        /// temporarily replaced with the "Utilities" menu again until the spawn gun is being let go of, placing
-        /// back the custom menu. If this function is called twice, any subsequent call replaces preceding calls,
-        /// replacing the old custom menu with the newly created one by this function.
+        /// Places a custom menu on the specified side of the radial menu, replacing whatever usually exists on that side
+        /// of the menu. It is not guaranteed that the created menu will stay here, as BONELAB will place its own menus
+        /// inside of the radial menu. As a general rule, two custom menus are feasible, one on the south side and one
+        /// on the north side. Menus on the west side of the radial menu will replaced by the "Utilities"
+        /// menu while holding the spawn gun and any custom menus will be added back once the spawn gun is
+        /// being let go of and menus on the north side will be replaced by the "Eject" button whenever holding a weapon
+        /// with a magazine in it and any custom menus will be added back once the weapon is let go of or the magazine
+        /// has been ejected out of the weapon. Considering this, it's wise to only place menus on those two sides.
         /// </summary>
-        /// <param name="name">The display name of the menu</param>
+        /// <param name="name">The display name of the new menu</param>
+        /// <param name="direction">The direction of the new menu</param>
         /// <returns>A <see cref="RadialMenu"/> object to chain method calls with. This objects represents
-        /// the root menu that you can then create sub menus and buttons in.</returns>
-        public static RadialSubMenu CreateRootMenu(string name)
+        /// the root menu that you can then create sub menus and menu items in.</returns>
+        public static RadialSubMenu AddRootMenu(string name, PageItem.Directions direction)
         {
-            RootMenu = new RadialSubMenu(name, PageItem.Directions.WEST);
-            return RootMenu;
+            Log(name, direction);
+            RadialSubMenu menu = new RadialSubMenu(name, direction);
+            RootMenus.Add(menu);
+            return menu;
         }
 
-        public static void RemoveRootMenu()
+        public static RadialSubMenu AddRootMenu(RadialSubMenu menu)
         {
-            if (RootPageItems == null)
-            {
-                return;
-            }
+            Log(menu);
+            RootMenus.Add(menu);
+            return menu;
+        }
 
-            if (_RootMenuAsPageItem != null)
-            {
-                RootPageItems.Remove(_RootMenuAsPageItem);
-            }
+        public static void RemoveRootMenu(RadialSubMenu menu)
+        {
+            Log(menu);
 
-            _HomePage.items.Clear();
-            foreach (var item in RootPageItems)
+            if (_RootMenusAsPageItems.TryGetValue(menu, out PageItem pageItem))
             {
-                _HomePage.items.Add(item);
+                _RootMenusAsPageItems.Remove(menu);
+                RootMenus.Remove(menu);
+                if (InRootLevel)
+                {
+                    _HomePage.items.Remove(pageItem);
+                }
             }
-
-            RootMenu = null;
-            RootPageItems = null;
-            _RootMenuAsPageItem = null;
-            LastRootMenu = null;
-            LastActivatePopupParams = null;
-            InRootLevel = true;
         }
 
         public abstract class RadialMenuElement
@@ -168,8 +186,8 @@ namespace Fusion5vs5Gamemode
 
         public class RadialSubMenu : RadialMenuElement, IEnumerable<RadialMenuElement>
         {
-            private List<RadialMenuElement> Items => new List<RadialMenuElement>(7);
-            public int Count => Items.Count;
+            private List<RadialMenuElement> _Items = new List<RadialMenuElement>(7);
+            public int Count => _Items.Count;
 
             internal RadialSubMenu Parent { get; private set; }
             internal RadialMenuItem BackButton;
@@ -182,7 +200,7 @@ namespace Fusion5vs5Gamemode
                 BackButton = new RadialMenuItem("Back", PageItem.Directions.SOUTH,
                     () => { OnBackButtonClicked(this); });
 
-                Items.Add(BackButton);
+                _Items.Add(BackButton);
             }
 
             public RadialSubMenu CreateSubMenu(string name, PageItem.Directions direction)
@@ -198,7 +216,7 @@ namespace Fusion5vs5Gamemode
                 return menu;
             }
 
-            public RadialMenuItem CreateItem(string name, PageItem.Directions direction, System.Action onItemPressed)
+            public RadialMenuItem CreateItem(string name, PageItem.Directions direction, Action onItemPressed)
             {
                 if (direction == PageItem.Directions.SOUTH)
                 {
@@ -213,7 +231,7 @@ namespace Fusion5vs5Gamemode
 
             public void Clear()
             {
-                foreach (var item in Items)
+                foreach (var item in _Items)
                 {
                     if (item is RadialSubMenu menu)
                     {
@@ -221,7 +239,7 @@ namespace Fusion5vs5Gamemode
                     }
                 }
 
-                Items.Clear();
+                _Items.Clear();
             }
 
             public bool Remove(RadialMenuElement item)
@@ -231,7 +249,7 @@ namespace Fusion5vs5Gamemode
                     menu.Parent = null;
                 }
 
-                return Items.Remove(item);
+                return _Items.Remove(item);
             }
 
             public void Add(RadialMenuElement item)
@@ -241,7 +259,7 @@ namespace Fusion5vs5Gamemode
                     return;
                 }
 
-                RadialMenuElement toDelete = Items.Find(element => element.Direction == item.Direction);
+                RadialMenuElement toDelete = _Items.Find(element => element.Direction == item.Direction);
                 if (toDelete != null)
                 {
                     Remove(toDelete);
@@ -252,7 +270,7 @@ namespace Fusion5vs5Gamemode
                     menu.Parent = this;
                 }
 
-                Items.Add(item);
+                _Items.Add(item);
             }
 
             public void AddRange(IEnumerable<RadialMenuElement> collection)
@@ -265,19 +283,24 @@ namespace Fusion5vs5Gamemode
 
             private static void OnBackButtonClicked(RadialSubMenu subMenu)
             {
-                if (subMenu == RootMenu || subMenu.Parent == null)
+                if (RootMenus.Contains(subMenu) || subMenu.Parent == null)
                 {
                     DeactivateRadialMenu();
 
                     InRootLevel = true;
                     _HomePage.items.Clear();
 
-                    foreach (var pageItem in RootPageItems)
+                    foreach (var pageItem in RootPageBackup)
                     {
                         _HomePage.items.Add(pageItem);
                     }
 
-                    if (subMenu == RootMenu)
+                    foreach (var customPageItems in _RootMenusAsPageItems.Values)
+                    {
+                        _HomePage.items.Add(customPageItems);
+                    }
+
+                    if (RootMenus.Contains(subMenu))
                     {
                         ActivateRadialMenu();
                     }
@@ -290,7 +313,7 @@ namespace Fusion5vs5Gamemode
 
             public IEnumerator<RadialMenuElement> GetEnumerator()
             {
-                return Items.GetEnumerator();
+                return _Items.GetEnumerator();
             }
 
             IEnumerator IEnumerable.GetEnumerator()
@@ -301,9 +324,9 @@ namespace Fusion5vs5Gamemode
 
         public class RadialMenuItem : RadialMenuElement
         {
-            public System.Action OnItemClicked { get; set; }
+            public Action OnItemClicked { get; set; }
 
-            public RadialMenuItem(string name, PageItem.Directions direction, System.Action onItemClicked)
+            public RadialMenuItem(string name, PageItem.Directions direction, Action onItemClicked)
             {
                 Name = name;
                 Direction = direction;

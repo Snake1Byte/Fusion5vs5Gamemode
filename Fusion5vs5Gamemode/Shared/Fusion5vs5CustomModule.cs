@@ -1,8 +1,8 @@
 ﻿using LabFusion.Network;
 using LabFusion.SDK.Modules;
-using static Fusion5vs5Gamemode.Commons;
+using static Fusion5vs5Gamemode.Shared.Commons;
 
-namespace Fusion5vs5Gamemode
+namespace Fusion5vs5Gamemode.Shared
 {
     public class Fusion5vs5CustomModule : Module
     {

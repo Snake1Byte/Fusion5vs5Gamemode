@@ -1,6 +1,6 @@
 ﻿using Fusion5vs5Gamemode.SDK;
 
-namespace Fusion5vs5Gamemode
+namespace Fusion5vs5Gamemode.Client
 {
     public class SDKIntegration
     {

@@ -1,4 +1,4 @@
-﻿namespace Fusion5vs5Gamemode
+﻿namespace Fusion5vs5Gamemode.Shared
 {
     public enum GameStates
     {

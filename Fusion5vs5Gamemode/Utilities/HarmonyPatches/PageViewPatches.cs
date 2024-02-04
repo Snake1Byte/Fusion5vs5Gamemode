@@ -4,8 +4,9 @@ using HarmonyLib;
 using MelonLoader;
 using SLZ.UI;
 
-namespace Fusion5vs5Gamemode
+namespace Fusion5vs5Gamemode.Utilities
 {
+    /*
     [HarmonyPatch(typeof(PageView))]
     public static class PageViewPatches
     {
@@ -157,4 +158,5 @@ namespace Fusion5vs5Gamemode
             ++CallCounter;
         }
     }
+    */
 }

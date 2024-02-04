@@ -2,9 +2,8 @@
 using LabFusion.Data;
 using LabFusion.Network;
 using LabFusion.SDK.Gamemodes;
-using MelonLoader;
 
-namespace Fusion5vs5Gamemode
+namespace Fusion5vs5Gamemode.Shared
 {
     public class Fusion5vs5ClientRequest : IFusionSerializable, IDisposable
     {
@@ -39,13 +38,13 @@ namespace Fusion5vs5Gamemode
             {
                 using (var data = reader.ReadFusionSerializable<Fusion5vs5ClientRequest>())
                 {
-                    if (NetworkInfo.IsServer && Fusion5vs5Gamemode.Instance != null)
+                    if (NetworkInfo.IsServer && Client.Fusion5vs5Gamemode.Instance != null)
                     {
                         var info = data.value;
-                        if (Fusion5vs5Gamemode.Instance.Tag.HasValue &&
-                            GamemodeManager.TryGetGamemode(Fusion5vs5Gamemode.Instance.Tag.Value, out var gamemode))
+                        if (Client.Fusion5vs5Gamemode.Instance.Tag.HasValue &&
+                            GamemodeManager.TryGetGamemode(Client.Fusion5vs5Gamemode.Instance.Tag.Value, out var gamemode))
                         {
-                            Fusion5vs5Gamemode.Instance.Server.OnClientRequested(info);
+                            Client.Fusion5vs5Gamemode.Instance.Server.OnClientRequested(info);
                         }
                     }
                 }

@@ -1,17 +1,21 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Timers;
 using Fusion5vs5Gamemode.SDK;
+using Fusion5vs5Gamemode.Shared;
+using Fusion5vs5Gamemode.Utilities;
+using LabFusion.Data;
 using LabFusion.Network;
 using LabFusion.Representation;
 using LabFusion.SDK.Gamemodes;
 using LabFusion.Senders;
 using LabFusion.Utilities;
 using MelonLoader;
+using SLZ.Interaction;
+using SLZ.Props.Weapons;
+using SLZ.Rig;
 using UnityEngine;
-using UnityEngine.Playables;
-using static Fusion5vs5Gamemode.Commons;
+using static Fusion5vs5Gamemode.Shared.Commons;
 
 namespace Fusion5vs5Gamemode.Server
 {
@@ -40,15 +44,14 @@ namespace Fusion5vs5Gamemode.Server
             DefendingTeam { get; } // Will be set from the SDK with the Fusion5vs5Descriptor component
 
         // States
-        private GameStates _State = GameStates.Unknown;
-
         private Timer _GameTimer;
-
-        private List<PlayerId> _PlayersInBuyZone = new List<PlayerId>();
-
         private Dictionary<GameStates, int> TimeLimits { get; }
+        private GameStates _State = GameStates.Unknown;
+        private Timer _BuyTimer;
+        private bool _BuyTimeOver;
 
         private readonly Dictionary<PlayerId, PlayerStates> _PlayerStatesDict;
+        private List<PlayerId> _PlayersInBuyZone = new List<PlayerId>();
 
         public Server(IServerOperations operations,
             Fusion5vs5GamemodeTeams defendingTeam,
@@ -197,7 +200,7 @@ namespace Fusion5vs5Gamemode.Server
                 _SpawnPoints.Remove(player);
                 team.Players.Remove(player);
                 SetPlayerState(player, PlayerStates.Spectator);
-                Operations.InvokeTrigger($"{Events.PlayerSpectates}.{player?.LongId}");
+                Operations.InvokeTrigger($"{Events.PlayerSpectates}.{player.LongId}");
             }
             else if (request.StartsWith(ClientRequest.BuyZoneEntered))
             {
@@ -210,6 +213,12 @@ namespace Fusion5vs5Gamemode.Server
                 string[] info = request.Split('.');
                 PlayerId player = GetPlayerFromValue(info[1]);
                 OnPlayerExitedBuyZone(player);
+            }
+            else if (request.StartsWith(ClientRequest.BuyItem))
+            {
+                string[] info = request.Split('.');
+                PlayerId player = GetPlayerFromValue(info[1]);
+                BuyItemRequested(player, info[2]);
             }
         }
 
@@ -544,13 +553,65 @@ namespace Fusion5vs5Gamemode.Server
 
         private void FreezePlayer(PlayerId player)
         {
+            Log(player);
             Operations.InvokeTrigger($"{Events.Freeze}.{player.LongId}");
         }
-        
+
         private void UnFreezePlayer(PlayerId player)
         {
+            Log(player);
             Operations.InvokeTrigger($"{Events.UnFreeze}.{player.LongId}");
         }
+
+        private void BuyItemRequested(PlayerId player, string barcode)
+        {
+            Log(player, barcode);
+            _PlayerStatesDict.TryGetValue(player, out var state);
+            if (!_PlayersInBuyZone.Contains(player) || _BuyTimeOver || state != PlayerStates.Alive)
+            {
+                return;
+            }
+
+            if (!PlayerRepManager.TryGetPlayerRep(player.SmallId, out var rep))
+            {
+                return;
+            }
+
+            RigManager rm = rep.RigReferences.RigManager;
+            Transform headTransform = rm.physicsRig.m_pelvis;
+            SerializedTransform finalTransform = new SerializedTransform(headTransform.position + headTransform.forward,
+                headTransform.rotation);
+            SpawnResponseMessagePatches.OnSpawnFinished += PlaceItemInInventory;
+            PooleeUtilities.RequestSpawn(barcode, finalTransform);
+
+            void PlaceItemInInventory(byte owner, string spawnedBarcode, GameObject spawnedGo)
+            {
+                Log(owner, spawnedBarcode, spawnedGo);
+                SpawnResponseMessagePatches.OnSpawnFinished -= PlaceItemInInventory;
+
+                WeaponSlot weaponSlot = spawnedGo.GetComponentInChildren<WeaponSlot>();
+                if (weaponSlot == null)
+                {
+                    return;
+                }
+
+                InteractableHost host = spawnedGo.GetComponentInChildren<InteractableHost>();
+                if (host == null)
+                {
+                    return;
+                }
+                
+                foreach (var slot in rep.RigReferences.RigSlots)
+                {
+                    if (slot._slottedWeapon != null && (slot.slotType & weaponSlot.slotType) != 0)
+                    {
+                        slot.InsertInSlot(host);
+                        return;
+                    }
+                }
+            }
+        }
+
 
         private void OnPlayerEnteredBuyZone(PlayerId player)
         {
@@ -583,6 +644,11 @@ namespace Fusion5vs5Gamemode.Server
             _GameTimer = new Timer();
             _GameTimer.AutoReset = false;
             _GameTimer.Elapsed += (sender, args) => OnTimeElapsed();
+
+            _BuyTimer = new Timer();
+            _BuyTimer.AutoReset = false;
+            _BuyTimer.Elapsed += (sender, args) => _BuyTimeOver = true;
+            _BuyTimer.Interval = 40 * 1000;
             NextState();
         }
 
@@ -661,6 +727,10 @@ namespace Fusion5vs5Gamemode.Server
                     break;
                 case GameStates.BuyPhase:
                     IncrementRoundNumber();
+
+                    _BuyTimeOver = false;
+                    _BuyTimer.Start();
+
                     foreach (var team in _Teams)
                     {
                         foreach (var player in team.Players)
@@ -745,6 +815,9 @@ namespace Fusion5vs5Gamemode.Server
                     // defending team wins due to time running out
                     IncrementTeamScore(DefendingTeam);
                     Operations.InvokeTrigger($"{Events.TeamWonRound}.{DefendingTeam.TeamName}");
+
+                    _BuyTimeOver = true;
+                    _BuyTimer.Stop();
                     break;
                 case GameStates.RoundEndPhase:
                     break;

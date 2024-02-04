@@ -1,15 +1,11 @@
 ﻿using System.Reflection;
-using BoneLib;
 using FieldInjector;
 using Fusion5vs5Gamemode.SDK;
-using LabFusion.Data;
+using Fusion5vs5Gamemode.Shared;
+using Fusion5vs5Gamemode.Utilities;
 using LabFusion.SDK.Gamemodes;
 using LabFusion.SDK.Modules;
-using LabFusion.Utilities;
 using MelonLoader;
-using SLZ.Rig;
-using SLZ.UI;
-using UnityEngine;
 
 namespace Fusion5vs5Gamemode
 {
@@ -22,7 +18,6 @@ namespace Fusion5vs5Gamemode
             SerialisationHandler.Inject<Invoke5vs5UltEvent>();
             ModuleHandler.LoadModule(Assembly.GetExecutingAssembly());
             GamemodeRegistration.LoadGamemodes(Assembly.GetExecutingAssembly());
-            RadialMenu.Initialize();
         }
 
         public const string Name = "Fusion5vs5Gamemode";

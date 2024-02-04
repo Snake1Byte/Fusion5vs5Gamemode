@@ -3,14 +3,14 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Text;
-using System.Threading;
+using BoneLib;
 using Fusion5vs5Gamemode.SDK;
+using Fusion5vs5Gamemode.Utilities;
 using LabFusion.Data;
 using LabFusion.Representation;
 using LabFusion.SDK.Gamemodes;
-using MelonLoader;
 
-namespace Fusion5vs5Gamemode
+namespace Fusion5vs5Gamemode.Shared
 {
     public static class Commons
     {
@@ -52,12 +52,12 @@ namespace Fusion5vs5Gamemode
         {
             public const string ChangeTeams = "ChangeTeams";
             public const string JoinSpectator = "JoinSpectator";
-            public const string Buy = "Buy";
+            public const string BuyItem = "BuyItem";
             public const string BuyZoneEntered = "BuyZoneEntered";
             public const string BuyZoneExited = "BuyZoneExited";
         }
 
-        public const string SpectatorAvatar = BoneLib.CommonBarcodes.Avatars.PolyBlank;
+        public const string SpectatorAvatar = CommonBarcodes.Avatars.PolyBlank;
 
         public static string GetTeamMemberKey(PlayerId id)
         {
@@ -182,6 +182,9 @@ namespace Fusion5vs5Gamemode
                         } else if (parameters[i] is PlayerId p)
                         {
                             builder.Append(p.LongId);
+                        } else if (parameters[i] is RadialMenu.RadialSubMenu r)
+                        {
+                            builder.Append($"{(r.Parent == null ? "" : $"{r.Parent.Name} + /")}{r.Name}");
                         }
                         else
                         {

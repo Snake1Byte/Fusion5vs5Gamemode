@@ -5,7 +5,7 @@ using MelonLoader;
 using SLZ.Bonelab;
 using UnityEngine;
 
-namespace Fusion5vs5Gamemode
+namespace Fusion5vs5Gamemode.Utilities
 {
     public class TriggerLasersEvents
     {
@@ -25,7 +25,7 @@ namespace Fusion5vs5Gamemode
                 MelonLogger.Msg("TriggerLasers Harmony Patch: OnTriggerEnterEvent()");
                 if (__instance.rigManager != null)
                 {
-                    MelonLogger.Msg("sos " + (__instance.rigManager == RigData.RigReferences.RigManager));
+                    MelonLogger.Msg("Did local player enter trigger: " + (__instance.rigManager == RigData.RigReferences.RigManager));
                     if (TriggerLasersEvents.OnTriggerEntered != null &&
                         __instance.rigManager == RigData.RigReferences.RigManager)
                     {
@@ -44,7 +44,7 @@ namespace Fusion5vs5Gamemode
                 MelonLogger.Msg("TriggerLasers Harmony Patch: OnTriggerExitEvent()");
                 if (__instance.rigManager != null)
                 {
-                    MelonLogger.Msg("sos " + (__instance.rigManager == RigData.RigReferences.RigManager));
+                    MelonLogger.Msg("Did local player enter trigger: " + (__instance.rigManager == RigData.RigReferences.RigManager));
                     if (TriggerLasersEvents.OnTriggerExited != null &&
                         __instance.rigManager == RigData.RigReferences.RigManager)
                     {
