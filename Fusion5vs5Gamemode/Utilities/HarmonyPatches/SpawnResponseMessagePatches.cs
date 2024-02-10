@@ -3,7 +3,7 @@ using HarmonyLib;
 using LabFusion.Network;
 using UnityEngine;
 
-namespace Fusion5vs5Gamemode.Utilities
+namespace  Fusion5vs5Gamemode.Utilities.HarmonyPatches
 {
     [HarmonyPatch(typeof(SpawnResponseMessage))]
     public static class SpawnResponseMessagePatches

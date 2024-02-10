@@ -134,13 +134,17 @@ namespace Fusion5vs5Gamemode.Shared
 
         public static StringBuilder builder = new StringBuilder();
 
-        public static void LogCustom(string custom)
+
+        static Commons()
         {
-            builder.Append(custom);
+#if DEBUG
+            builder.Append("==================================================================\n");
+#endif
         }
 
         public static void Log(params object[] parameters)
         {
+#if DEBUG
             StackFrame frame = new StackFrame(1);
             MethodBase method = frame.GetMethod();
             if (method == null)
@@ -179,10 +183,12 @@ namespace Fusion5vs5Gamemode.Shared
                         else if (parameters[i] is Team t)
                         {
                             builder.Append(t.TeamName);
-                        } else if (parameters[i] is PlayerId p)
+                        }
+                        else if (parameters[i] is PlayerId p)
                         {
                             builder.Append(p.LongId);
-                        } else if (parameters[i] is RadialMenu.RadialSubMenu r)
+                        }
+                        else if (parameters[i] is RadialMenu.RadialSubMenu r)
                         {
                             builder.Append($"{(r.Parent == null ? "" : $"{r.Parent.Name} + /")}{r.Name}");
                         }
@@ -205,11 +211,13 @@ namespace Fusion5vs5Gamemode.Shared
             }
 
             Dump();
+#endif
         }
 
         public static void Dump()
         {
-            string filePath = "D:\\Windows User\\Desktop\\Fusion5vs5GamemodeDump.txt";
+#if DEBUG
+            string filePath = "D:\\Windows User\\Desktop\\Fusion5vs5GamemodeDump.txt"; // TODO change path
             string contentToAppend = builder.ToString();
             try
             {
@@ -234,6 +242,7 @@ namespace Fusion5vs5Gamemode.Shared
             {
                 Console.WriteLine($"Could not dump stack trace: {ex.Message}");
             }
+#endif
         }
     }
 }

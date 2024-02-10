@@ -1,18 +1,17 @@
+using System;
 using HarmonyLib;
-using Il2CppSystem;
 using LabFusion.Data;
-using MelonLoader;
 using SLZ.Rig;
 using SLZ.UI;
 using UnityEngine;
 
-namespace Fusion5vs5Gamemode.Utilities
+namespace  Fusion5vs5Gamemode.Utilities.HarmonyPatches
 {
     [HarmonyPatch(typeof(PopUpMenuView))]
     public static class PopUpMenuViewPatches
     {
-        public static System.Action<Transform, Transform, UIControllerInput, BaseController> OnPopUpMenuActivate;
-        public static System.Action OnPopUpMenuDeactivate;
+        public static Action<Transform, Transform, UIControllerInput, BaseController> OnPopUpMenuActivate;
+        public static Action OnPopUpMenuDeactivate;
 
         [HarmonyPrefix]
         [HarmonyPatch(nameof(PopUpMenuView.Activate))]
@@ -36,7 +35,7 @@ namespace Fusion5vs5Gamemode.Utilities
         }
 
         /*
-        public static int CallCounter = 1;
+        private static int CallCounter = 1;
         [HarmonyPostfix]
         [HarmonyPatch(nameof(PopUpMenuView.AddAvatarsMenu))]
         public static void AddAvatarsMenu()

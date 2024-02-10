@@ -132,12 +132,16 @@ python "D:\Windows User\Documents\Python\a\Copy Files.py" "C:\Users\Snek\source\
     <Compile Include="Shared\Fusion5vs5CustomModule.cs" />
     <Compile Include="Shared\GameStates.cs" />
     <Compile Include="Shared\SpawnPointRepresentation.cs" />
-    <Compile Include="Utilities\HarmonyPatches\PageViewPatches.cs" />
-    <Compile Include="Utilities\HarmonyPatches\Patches.cs" />
+    <Compile Include="Utilities\Extensions\IntElementExtensions.cs" />
+    <Compile Include="Utilities\HarmonyPatches\GunPatches.cs" />
+    <Compile Include="Utilities\HarmonyPatches\ImpactPropertiesPatches.cs" />
+    <Compile Include="Utilities\HarmonyPatches\NativeUtilities.cs" />
     <Compile Include="Utilities\HarmonyPatches\PopUpMenuViewPatches.cs" />
+    <Compile Include="Utilities\HarmonyPatches\ProjectilePatches.cs" />
     <Compile Include="Utilities\HarmonyPatches\SpawnResponseMessagePatches.cs" />
     <Compile Include="Utilities\HarmonyPatches\TriggerLasersPatches.cs" />
     <Compile Include="Utilities\IServerOperations.cs" />
+    <Compile Include="Utilities\ProjectileTrace.cs" />
     <Compile Include="Utilities\RadialMenu.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
