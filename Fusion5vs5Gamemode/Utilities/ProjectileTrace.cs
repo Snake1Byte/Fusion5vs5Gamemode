@@ -48,22 +48,52 @@ namespace Fusion5vs5Gamemode.Utilities
 
         private static void GunFired(Gun gun)
         {
-            lock (dictionariesLock)
+            try
             {
-                FirePointOrigin[gun.firePointTransform.GetInstanceID()] = gun;
+                lock (dictionariesLock)
+                {
+                    FirePointOrigin[gun.firePointTransform.GetInstanceID()] = gun;
+                }
+            }
+            catch (Exception e)
+            {
+#if DEBUG
+                MelonLogger.Msg(
+                    $"Exception {e} in ProjectileTrace.GunFired(...). Aborting.");
+                return;
+#endif
             }
         }
 
         private static void ProjectileDispatched(Projectile projectile, ProjectileData data, Transform startTransform,
             TriggerRefProxy proxy)
         {
-            lock (dictionariesLock)
+            try
             {
-                if (FirePointOrigin.TryGetValue(startTransform.GetInstanceID(), out Gun gun))
+                lock (dictionariesLock)
                 {
-                    ProjectileOrigin[projectile] = gun;
-                    TriggerRefProxys[projectile.GetInstanceID()] = proxy;
+                    if (FirePointOrigin.TryGetValue(startTransform.GetInstanceID(), out Gun gun))
+                    {
+                        FirePointOrigin.Remove(startTransform.GetInstanceID());
+                        ProjectileOrigin[projectile] = gun;
+                        TriggerRefProxys[projectile.GetInstanceID()] = proxy;
+                    }
+                    else
+                    {
+#if DEBUG
+                        MelonLogger.Msg(
+                            $"Could not find Gun that fired at Firepoint {startTransform.GetInstanceID()} with name {startTransform.gameObject.name}. Aborting.");
+#endif
+                    }
                 }
+            }
+            catch (Exception e)
+            {
+#if DEBUG
+                MelonLogger.Msg(
+                    $"Exception {e} in ProjectileTrace.ProjectileDispatched(...). Aborting.");
+                return;
+#endif
             }
         }
 
@@ -89,13 +119,22 @@ namespace Fusion5vs5Gamemode.Utilities
                         }
                     }
 
-                    impactOrigin = ProjectileOrigin.Keys.First(e => e._direction == attack.direction);
+                    impactOrigin = ProjectileOrigin.Keys.First(e => e._direction.Equals(attack.direction));
+#if DEBUG
+                    MelonLogger.Msg(
+                        $"Projectile that fits the impacted surface's impact direction is {impactOrigin.GetInstanceID()} with direction {impactOrigin._direction}");
+#endif
                     if (ProjectileOrigin.TryGetValue(impactOrigin, out Gun gun))
                     {
+                        ProjectileOrigin.Remove(impactOrigin);
                         projectileOrigin = gun;
                     }
                     else
                     {
+#if DEBUG
+                        MelonLogger.Msg(
+                            $"Could not find Gun that fired Projectile {impactOrigin.GetInstanceID()} with name {impactOrigin.gameObject.name}. Aborting.");
+#endif
                         return;
                     }
 
@@ -117,7 +156,7 @@ namespace Fusion5vs5Gamemode.Utilities
                     {
 #if DEBUG
                         MelonLogger.Msg(
-                            $"No TriggerRefProxy component found for Prejectile with GO name \"{impactOrigin.gameObject.name}\".");
+                            $"No TriggerRefProxy component found for Prejectile with GO name \"{impactOrigin.gameObject.name}\". Aborting.");
 #endif
                         return;
                     }
@@ -126,9 +165,17 @@ namespace Fusion5vs5Gamemode.Utilities
                 {
 #if DEBUG
                     MelonLogger.Msg(
-                        $"No Projectile component found that impacted on a surface with direction {attack.direction}.");
+                        $"No Projectile component found that impacted on a surface with direction {attack.direction}. Aborting.");
 #endif
                     return;
+                }
+                catch (Exception e)
+                {
+#if DEBUG
+                    MelonLogger.Msg(
+                        $"Exception {e} in ProjectileTrace.ProjectileImpactedSurface(...). Aborting.");
+                    return;
+#endif
                 }
             }
 

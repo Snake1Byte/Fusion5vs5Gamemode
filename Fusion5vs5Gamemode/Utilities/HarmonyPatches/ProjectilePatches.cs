@@ -25,7 +25,7 @@ namespace Fusion5vs5Gamemode.Utilities.HarmonyPatches
 #if DEBUG
             Counter++;
             MelonLogger.Msg(
-                $"{Counter}: Called Projectile.SetBulletObject(data = {data.GetInstanceID()} {data}, startTransform = {startTransform.GetInstanceID()} {startTransform.position} {startTransform.rotation} {startTransform}, locPos = {locPos}, locRot = {locRot}, EmittingRigidbody = {EmittingRigidbody}, proxy = {proxy.GetInstanceID()} {proxy})");
+                $"{Counter}: Called Projectile.SetBulletObject(instance = {__instance.GetInstanceID()}, data = {data.GetInstanceID()} {data}, startTransform = {startTransform.GetInstanceID()} {startTransform.position} {startTransform.rotation} {startTransform}, locPos = {locPos}, locRot = {locRot}, EmittingRigidbody = {EmittingRigidbody}, proxy = {proxy.GetInstanceID()} {proxy})");
 #endif
             try
             {

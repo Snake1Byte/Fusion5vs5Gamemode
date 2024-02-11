@@ -3,6 +3,7 @@ using HarmonyLib;
 using LabFusion.NativeStructs;
 using LabFusion.Patching;
 using MelonLoader;
+using SLZ.AI;
 using SLZ.Combat;
 
 namespace Fusion5vs5Gamemode.Utilities.HarmonyPatches
@@ -40,15 +41,17 @@ namespace Fusion5vs5Gamemode.Utilities.HarmonyPatches
             {
                 ImpactProperties receiver;
                 Attack_ _attack = new Attack_();
+                TriggerRefProxy proxy;
                 unsafe
                 {
                     receiver = new ImpactProperties(instance);
                     _attack = *(Attack_*)attack;
+                    proxy = new TriggerRefProxy(_attack.proxy);
                 }
 #if DEBUG
                 Counter++;
                 MelonLogger.Msg(
-                    $"{Counter}: Called ImpactProperties.ReceiveAttack(attack: damage = {_attack.damage}, direction = {_attack.direction}, normal = {_attack.normal}, origin = {_attack.origin})");
+                    $"{Counter}: Called ImpactProperties.ReceiveAttack(attack: damage = {_attack.damage}, direction = {_attack.direction}, normal = {_attack.normal}, origin = {_attack.origin}, proxy = {proxy.GetInstanceID()} {proxy})");
 #endif
 
                 if (OnAttackReceived != null)
