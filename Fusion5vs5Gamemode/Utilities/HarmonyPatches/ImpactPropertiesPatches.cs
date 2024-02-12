@@ -42,32 +42,26 @@ namespace Fusion5vs5Gamemode.Utilities.HarmonyPatches
                 ImpactProperties receiver;
                 Attack_ _attack = new Attack_();
                 TriggerRefProxy proxy;
+                receiver = new ImpactProperties(instance);
                 unsafe
                 {
-                    receiver = new ImpactProperties(instance);
                     _attack = *(Attack_*)attack;
-                    proxy = new TriggerRefProxy(_attack.proxy);
                 }
+
+                proxy = new TriggerRefProxy(_attack.proxy);
 #if DEBUG
                 Counter++;
                 MelonLogger.Msg(
                     $"{Counter}: Called ImpactProperties.ReceiveAttack(attack: damage = {_attack.damage}, direction = {_attack.direction}, normal = {_attack.normal}, origin = {_attack.origin}, proxy = {proxy.GetInstanceID()} {proxy})");
 #endif
-
-                if (OnAttackReceived != null)
-                {
-                    OnAttackReceived.Invoke(receiver, _attack);
-                }
+                BoneLib.SafeActions.InvokeActionSafe(OnAttackReceived, receiver, _attack);
+                _original(instance, attack, method);
             }
             catch (Exception e)
             {
 #if DEBUG
                 MelonLogger.Msg($"Exception {e} fired in ImpactProperties.ReceiveAttack() HarmonyPatch.");
 #endif
-            }
-            finally
-            {
-                _original(instance, attack, method);
             }
         }
 

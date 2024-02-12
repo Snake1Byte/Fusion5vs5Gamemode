@@ -332,7 +332,6 @@ namespace Fusion5vs5Gamemode.Client
             _State = GameStates.Unknown;
 
             _DebugText = null;
-            Dump();
         }
 
         private void OnFusion5vs5Started()

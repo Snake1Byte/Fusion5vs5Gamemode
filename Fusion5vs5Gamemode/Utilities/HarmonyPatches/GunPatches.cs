@@ -1,4 +1,5 @@
 ﻿using System;
+using BoneLib;
 using HarmonyLib;
 using MelonLoader;
 using SLZ.Props.Weapons;
@@ -14,14 +15,11 @@ namespace Fusion5vs5Gamemode.Utilities.HarmonyPatches
         [HarmonyPatch(nameof(Gun.OnFire))]
         public static void OnFire(Gun __instance)
         {
-            if (__instance == null) return;
-
             try
             {
-                if (OnGunFired != null)
-                {
-                    OnGunFired.Invoke(__instance);
-                }
+                if (__instance == null) return;
+
+                BoneLib.SafeActions.InvokeActionSafe(OnGunFired, __instance);
             }
             catch (Exception e)
             {

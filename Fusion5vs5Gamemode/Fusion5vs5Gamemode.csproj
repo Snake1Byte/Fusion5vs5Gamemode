@@ -143,6 +143,7 @@ python "D:\Windows User\Documents\Python\a\Copy Files.py" "C:\Users\Snek\source\
     <Compile Include="Utilities\IServerOperations.cs" />
     <Compile Include="Utilities\ProjectileTrace.cs" />
     <Compile Include="Utilities\RadialMenu.cs" />
+    <Compile Include="Utilities\SafeActions.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

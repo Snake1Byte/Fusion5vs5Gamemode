@@ -5,7 +5,7 @@ using SLZ.Rig;
 using SLZ.UI;
 using UnityEngine;
 
-namespace  Fusion5vs5Gamemode.Utilities.HarmonyPatches
+namespace Fusion5vs5Gamemode.Utilities.HarmonyPatches
 {
     [HarmonyPatch(typeof(PopUpMenuView))]
     public static class PopUpMenuViewPatches
@@ -15,12 +15,14 @@ namespace  Fusion5vs5Gamemode.Utilities.HarmonyPatches
 
         [HarmonyPrefix]
         [HarmonyPatch(nameof(PopUpMenuView.Activate))]
-        public static void Activate(PopUpMenuView __instance, Transform headTransform, Transform rootTransform, UIControllerInput controllerInput,
+        public static void Activate(PopUpMenuView __instance, Transform headTransform, Transform rootTransform,
+            UIControllerInput controllerInput,
             BaseController controller)
         {
-            if (OnPopUpMenuActivate != null && __instance.GetComponentInParent<RigManager>() == RigData.RigReferences.RigManager)
+            if (__instance.GetComponentInParent<RigManager>() == RigData.RigReferences.RigManager)
             {
-                OnPopUpMenuActivate.Invoke(headTransform, rootTransform, controllerInput, controller);
+                SafeActions.InvokeActionSafe(OnPopUpMenuActivate, headTransform, rootTransform, controllerInput,
+                    controller);
             }
         }
 
@@ -28,10 +30,7 @@ namespace  Fusion5vs5Gamemode.Utilities.HarmonyPatches
         [HarmonyPatch(nameof(PopUpMenuView.Deactivate))]
         public static void Deactivate()
         {
-            if (OnPopUpMenuDeactivate != null)
-            {
-                OnPopUpMenuDeactivate.Invoke();
-            }
+            BoneLib.SafeActions.InvokeActionSafe(OnPopUpMenuDeactivate);
         }
 
         /*

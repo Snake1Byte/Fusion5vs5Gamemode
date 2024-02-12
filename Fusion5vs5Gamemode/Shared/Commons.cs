@@ -210,29 +210,28 @@ namespace Fusion5vs5Gamemode.Shared
                 builder.Append("\n");
             }
 
-            Dump();
+            Dump(builder.ToString(), @"D:\Windows User\Desktop\Fusion5vs5GamemodeDump.txt");
 #endif
         }
 
-        public static void Dump()
+        public static void Dump(string content, string path)
         {
 #if DEBUG
-            string filePath = "D:\\Windows User\\Desktop\\Fusion5vs5GamemodeDump.txt"; // TODO change path
-            string contentToAppend = builder.ToString();
+            string filePath = path; // TODO change path
             try
             {
                 if (!File.Exists(filePath))
                 {
                     using (StreamWriter sw = File.CreateText(filePath))
                     {
-                        sw.Write(contentToAppend);
+                        sw.Write(content);
                     }
                 }
                 else
                 {
                     using (StreamWriter sw = File.AppendText(filePath))
                     {
-                        sw.Write(contentToAppend);
+                        sw.Write(content);
                     }
                 }
 

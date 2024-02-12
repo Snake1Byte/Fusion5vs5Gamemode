@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using BoneLib;
+using Fusion5vs5Gamemode.Shared;
 using Fusion5vs5Gamemode.Utilities.HarmonyPatches;
 using LabFusion.NativeStructs;
 using MelonLoader;
@@ -28,7 +30,7 @@ namespace Fusion5vs5Gamemode.Utilities
 
         static ProjectileTrace()
         {
-            Hooking.OnLevelLoading += EmptyDictionaries;
+            Hooking.OnLevelInitialized += EmptyDictionaries;
             GunPatches.OnGunFired += GunFired;
             ProjectilePatches.OnSetBulletObject += ProjectileDispatched;
             ImpactPropertiesPatches.OnAttackReceived += ProjectileImpactedSurface;
@@ -151,6 +153,7 @@ namespace Fusion5vs5Gamemode.Utilities
                         }
 
                         proxy = _proxy;
+                        TriggerRefProxys.Remove(impactOrigin.GetInstanceID());
                     }
                     else
                     {
@@ -174,14 +177,16 @@ namespace Fusion5vs5Gamemode.Utilities
 #if DEBUG
                     MelonLogger.Msg(
                         $"Exception {e} in ProjectileTrace.ProjectileImpactedSurface(...). Aborting.");
-                    return;
 #endif
+                    return;
                 }
             }
 
-            if (OnProjectileImpactedSurface != null)
+
+            SafeActions.InvokeActionSafe(OnProjectileImpactedSurface, impactOrigin, proxy, projectileOrigin, receiver,
+                attack);
+        }
             {
-                OnProjectileImpactedSurface.Invoke(impactOrigin, proxy, projectileOrigin, receiver, attack);
             }
         }
     }

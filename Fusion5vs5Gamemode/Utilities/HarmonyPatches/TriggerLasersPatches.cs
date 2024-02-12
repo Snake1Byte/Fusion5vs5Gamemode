@@ -20,23 +20,28 @@ namespace Fusion5vs5Gamemode.Utilities.HarmonyPatches
         [HarmonyPatch(nameof(TriggerLasers.OnTriggerEnter))]
         public static void OnTriggerEnter(TriggerLasers __instance, Collider other)
         {
-            if (other != null && other.CompareTag("Player"))
+            try
             {
-#if DEBUG
-                MelonLogger.Msg("OnTriggerEnterEvent()");
-#endif
-                if (__instance.rigManager != null)
+                if (other != null && other.CompareTag("Player"))
                 {
 #if DEBUG
-                    MelonLogger.Msg("Did local player enter trigger: " +
-                                    (__instance.rigManager == RigData.RigReferences.RigManager));
+                    MelonLogger.Msg("OnTriggerEnterEvent()");
 #endif
-                    if (TriggerLasersEvents.OnTriggerEntered != null &&
-                        __instance.rigManager == RigData.RigReferences.RigManager)
+                    if (__instance.rigManager != null)
                     {
-                        TriggerLasersEvents.OnTriggerEntered.Invoke(__instance);
+#if DEBUG
+                        MelonLogger.Msg("Did local player enter trigger: " +
+                                        (__instance.rigManager == RigData.RigReferences.RigManager));
+#endif
+                        if (__instance.rigManager == RigData.RigReferences.RigManager)
+                        {
+                            BoneLib.SafeActions.InvokeActionSafe(TriggerLasersEvents.OnTriggerEntered, __instance);
+                        }
                     }
                 }
+            }
+            catch
+            {
             }
         }
 
@@ -44,23 +49,28 @@ namespace Fusion5vs5Gamemode.Utilities.HarmonyPatches
         [HarmonyPatch(nameof(TriggerLasers.OnTriggerExit))]
         public static void OnTriggerExit(TriggerLasers __instance, Collider other)
         {
-            if (other != null && other.CompareTag("Player"))
+            try
             {
-#if DEBUG
-                MelonLogger.Msg("OnTriggerExitEvent()");
-#endif
-                if (__instance.rigManager != null)
+                if (other != null && other.CompareTag("Player"))
                 {
 #if DEBUG
-                    MelonLogger.Msg("Did local player enter trigger: " +
-                                    (__instance.rigManager == RigData.RigReferences.RigManager));
+                    MelonLogger.Msg("OnTriggerExitEvent()");
 #endif
-                    if (TriggerLasersEvents.OnTriggerExited != null &&
-                        __instance.rigManager == RigData.RigReferences.RigManager)
+                    if (__instance.rigManager != null)
                     {
-                        TriggerLasersEvents.OnTriggerExited.Invoke(__instance);
+#if DEBUG
+                        MelonLogger.Msg("Did local player enter trigger: " +
+                                        (__instance.rigManager == RigData.RigReferences.RigManager));
+#endif
+                        if (__instance.rigManager == RigData.RigReferences.RigManager)
+                        {
+                            BoneLib.SafeActions.InvokeActionSafe(TriggerLasersEvents.OnTriggerExited, __instance);
+                        }
                     }
                 }
+            }
+            catch
+            {
             }
         }
     }
