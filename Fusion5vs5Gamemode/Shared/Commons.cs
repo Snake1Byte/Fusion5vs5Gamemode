@@ -32,6 +32,7 @@ namespace Fusion5vs5Gamemode.Shared
             public const string PlayerSuicide = "PlayerSuicide";
             public const string KillPlayer = "KillPlayer";
             public const string RevivePlayer = "RevivePlayer";
+            public const string ReviveAndFreezePlayer = "ReviveAndFreezePlayer";
             public const string RespawnPlayer = "RespawnPlayer";
             public const string SetSpectator = "SetSpectator";
             public const string Freeze = "Freeze";

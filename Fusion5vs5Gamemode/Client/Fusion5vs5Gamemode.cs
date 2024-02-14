@@ -46,7 +46,12 @@ namespace Fusion5vs5Gamemode.Client
 
         private float _DebugTextUpdateTimePassed = 0;
         private GameObject _DebugText = null;
+
+#if DEBUG
         private bool _Debug = true;
+#else
+        private bool _Debug = false;
+#endif
 
         // Music 
         public override bool MusicEnabled => _EnableMusic;
@@ -157,7 +162,9 @@ namespace Fusion5vs5Gamemode.Client
 
             category.CreateBoolElement("Enable round music", Color.white, _EnableMusic, b => _EnableMusic = b);
 
+#if DEBUG
             category.CreateBoolElement("Debug", Color.white, _Debug, e => _Debug = e);
+#endif
         }
 
         public override void OnGamemodeRegistered()
@@ -393,11 +400,10 @@ namespace Fusion5vs5Gamemode.Client
             Log(key, value);
             base.OnMetadataChanged(key, value);
 
-            if (_Debug)
-            {
-                MelonLogger.Msg($"5vs5: OnMetadataChanged called: {key} {value}");
-                UpdateDebugText();
-            }
+#if DEBUG
+            MelonLogger.Msg($"5vs5: OnMetadataChanged called: {key} {value}");
+            UpdateDebugText();
+#endif
 
             if (key.StartsWith(Commons.Metadata.TeamKey))
             {
@@ -453,7 +459,7 @@ namespace Fusion5vs5Gamemode.Client
 
                 if (player.IsSelf)
                 {
-                    KillPlayer();
+                    Kill();
                 }
             }
             else if (eventName.StartsWith(Events.RevivePlayer))
@@ -462,7 +468,17 @@ namespace Fusion5vs5Gamemode.Client
                 PlayerId player = GetPlayerFromValue(_player);
                 if (player.IsSelf)
                 {
-                    RevivePlayer();
+                    Revive();
+                }
+            }
+            else if (eventName.StartsWith(Events.ReviveAndFreezePlayer))
+            {
+                string _player = eventName.Split('.')[1];
+                PlayerId player = GetPlayerFromValue(_player);
+                if (player.IsSelf)
+                {
+                    Revive();
+                    Freeze();
                 }
             }
             else if (eventName.StartsWith(Events.RespawnPlayer))
@@ -471,7 +487,7 @@ namespace Fusion5vs5Gamemode.Client
                 PlayerId player = GetPlayerFromValue(_player);
                 if (player.IsSelf)
                 {
-                    RespawnPlayer();
+                    Respawn();
                 }
             }
             else if (eventName.StartsWith(Events.SetSpectator))
@@ -580,6 +596,7 @@ namespace Fusion5vs5Gamemode.Client
 
         protected override void OnUpdate()
         {
+#if DEBUG
             if (_Debug)
             {
                 _DebugTextUpdateTimePassed += Time.deltaTime;
@@ -589,6 +606,7 @@ namespace Fusion5vs5Gamemode.Client
                     UpdateDebugText();
                 }
             }
+#endif
         }
 
         private void OnStateChanged(GameStates state)
@@ -676,8 +694,6 @@ namespace Fusion5vs5Gamemode.Client
         {
             Log();
 
-            Freeze();
-
             Fusion5vs5GamemodeTeams team = _LocalTeam == Fusion5vs5GamemodeTeams.Terrorists
                 ? Fusion5vs5GamemodeTeams.CounterTerrorists
                 : Fusion5vs5GamemodeTeams.Terrorists;
@@ -691,8 +707,6 @@ namespace Fusion5vs5Gamemode.Client
         private void StartMatchEndPhase()
         {
             Log();
-
-            Freeze();
 
             SDKIntegration.InvokeMatchEndPhaseStarted();
         }
@@ -829,7 +843,7 @@ namespace Fusion5vs5Gamemode.Client
         /// interactability, as described in <see cref="SetSpectator"/>. Typically called when player changes their team
         /// mid-round, outside of the buy phase or warmup phase.
         /// </summary>
-        private void KillPlayer()
+        private void Kill()
         {
             Log();
             SpawnRagdoll();
@@ -841,7 +855,7 @@ namespace Fusion5vs5Gamemode.Client
         /// Dead players leave their spectator avatar, get placed inside the their spawn point and are given back
         /// their visibility to other players as well as their interactability with the world.
         /// </summary>
-        private void RevivePlayer()
+        private void Revive()
         {
             Log();
             // TODO give back interactability and visibility
@@ -850,13 +864,13 @@ namespace Fusion5vs5Gamemode.Client
             FusionPlayer.ClearAvatarOverride();
             RigManager rm = RigData.RigReferences.RigManager;
             rm.SwapAvatarCrate(_LastLocalAvatar, true);
-            RespawnPlayer();
+            Respawn();
         }
 
         /// <summary>
         /// Enters the local player into the spectator avatar, where they're then taken away of their visibility from
         /// other players and their interactability with the world. Typically called by other methods such as
-        /// <see cref="KillPlayer"/>, or after the player has left any team and joined the spectators.
+        /// <see cref="Kill"/>, or after the player has left any team and joined the spectators.
         /// </summary>
         private void SetSpectator()
         {
@@ -869,17 +883,18 @@ namespace Fusion5vs5Gamemode.Client
             {
                 _LastLocalAvatar = avatarBarcode;
             }
-
+#if DEBUG
             MelonLogger.Msg($"_LastLocalAvatar changed to {_LastLocalAvatar}.");
+#endif
             FusionPlayer.SetAvatarOverride(SpectatorAvatar);
         }
 
         /// <summary>
         /// Simply teleports the local player into their team's spawnpoint. Typically used to re-position all players once
         /// the round ends and buy phase starts. Dead players however wont be respawned, they will be revived with
-        /// <see cref="RevivePlayer"/>. Using <see cref="RespawnPlayer"/> with dead players leads to undefined behaviour.
+        /// <see cref="Revive"/>. Using <see cref="Respawn"/> with dead players leads to undefined behaviour.
         /// </summary>
-        private void RespawnPlayer()
+        private void Respawn()
         {
             Log();
             FusionPlayer.Teleport(_LocalSpawnPoint.position, _LocalSpawnPoint.eulerAngles);
@@ -1058,8 +1073,9 @@ namespace Fusion5vs5Gamemode.Client
         private void UpdateUITimer()
         {
             ++_ElapsedTime;
-
+#if DEBUG
             UpdateDebugText();
+#endif
         }
 
         private void UpdateDebugText()
@@ -1116,7 +1132,7 @@ namespace Fusion5vs5Gamemode.Client
             {
                 return;
             }
-            
+
             TextMeshProUGUI eventTriggerText =
                 _DebugText.transform.Find("EventTriggerText").GetComponent<TextMeshProUGUI>();
             eventTriggerText.text = eventTriggerText.text + "\n" + eventTriggerName;

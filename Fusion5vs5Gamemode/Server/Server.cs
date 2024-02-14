@@ -201,6 +201,7 @@ namespace Fusion5vs5Gamemode.Server
                 _SpawnPoints.Remove(player);
                 team.Players.Remove(player);
                 SetPlayerState(player, PlayerStates.Spectator);
+                DetermineTeamWon(player, team);
                 Operations.InvokeTrigger($"{Events.PlayerSpectates}.{player.LongId}");
             }
             else if (request.StartsWith(ClientRequest.BuyZoneEntered))
@@ -236,7 +237,9 @@ namespace Fusion5vs5Gamemode.Server
             Log(player, selectedTeam);
             if (player == null || selectedTeam == null)
             {
+#if DEBUG
                 MelonLogger.Warning("TeamChangeRequested(): at least one argument was null.");
+#endif
                 return;
             }
 
@@ -244,8 +247,10 @@ namespace Fusion5vs5Gamemode.Server
 
             if (_State == GameStates.MatchHalfPhase || _State == GameStates.MatchEndPhase)
             {
+#if DEBUG
                 MelonLogger.Warning(
                     $"Player {playerName} tried to switch teams during MatchHalfPhase/MatchEndPhase, aborting.");
+#endif
                 return;
             }
 
@@ -258,7 +263,9 @@ namespace Fusion5vs5Gamemode.Server
                 SpawnPointRepresentation? newSpawnPoint = AssignSpawnPoint(player, spawnPoints);
                 if (newSpawnPoint == null)
                 {
+#if DEBUG
                     MelonLogger.Warning("TeamChangeRequested(): no free spawn points available for this team.");
+#endif
                     return;
                 }
 
@@ -268,6 +275,7 @@ namespace Fusion5vs5Gamemode.Server
                 }
 
                 selectedTeam.Players.Add(player);
+                Team oldTeam = currentTeam;
                 Operations.SetMetadata(GetTeamMemberKey(player), selectedTeam.TeamName);
                 MelonLogger.Msg($"Player {playerName} switched teams to {selectedTeam.TeamName}");
 
@@ -280,6 +288,7 @@ namespace Fusion5vs5Gamemode.Server
                     }
                     else
                     {
+                        // Already inside of a team
                         RespawnPlayer(player);
                     }
                 }
@@ -288,8 +297,7 @@ namespace Fusion5vs5Gamemode.Server
                     if (GetPlayerState(player) == PlayerStates.Spectator)
                     {
                         SetPlayerState(player, PlayerStates.Alive);
-                        RevivePlayer(player);
-                        FreezePlayer(player);
+                        ReviveAndFreezePlayer(player);
                     }
                     else
                     {
@@ -309,6 +317,8 @@ namespace Fusion5vs5Gamemode.Server
                         KillPlayer(player);
                     }
                 }
+
+                DetermineTeamWon(player, oldTeam);
             }
         }
 
@@ -379,22 +389,25 @@ namespace Fusion5vs5Gamemode.Server
         private void DetermineTeamWon(PlayerId killed)
         {
             Log(killed);
+
+            Team losingTeam = GetTeam(killed);
+            DetermineTeamWon(killed, losingTeam);
+        }
+
+        private void DetermineTeamWon(PlayerId player, Team losingTeam)
+        {
+            Log(player);
             if (_State != GameStates.PlayPhase)
                 return;
 
-            Team losingTeam = GetTeam(killed);
             // Not part of any team
             if (losingTeam == null)
-            {
                 return;
-            }
 
-            foreach (var player in losingTeam.Players)
+            foreach (var _player in losingTeam.Players)
             {
-                if (GetPlayerState(player) == PlayerStates.Alive)
-                {
+                if (GetPlayerState(_player) == PlayerStates.Alive)
                     return;
-                }
             }
 
             Team winnerTeam = losingTeam.Equals(CounterTerroristTeam) ? TerroristTeam : CounterTerroristTeam;
@@ -540,6 +553,14 @@ namespace Fusion5vs5Gamemode.Server
             Operations.InvokeTrigger($"{Events.RevivePlayer}.{player.LongId}");
         }
 
+        // Two time-sensitive methods who's order may not be swapped
+        private void ReviveAndFreezePlayer(PlayerId player)
+        {
+            Log(player);
+            SetPlayerState(player, PlayerStates.Alive);
+            Operations.InvokeTrigger($"{Events.ReviveAndFreezePlayer}.{player.LongId}");
+        }
+
         private void KillPlayer(PlayerId player)
         {
             Log(player);
@@ -562,6 +583,42 @@ namespace Fusion5vs5Gamemode.Server
         {
             Log(player);
             Operations.InvokeTrigger($"{Events.UnFreeze}.{player.LongId}");
+        }
+
+        private void FreezeAllPlayers()
+        {
+            foreach (var team in _Teams)
+            {
+                foreach (var player in team.Players)
+                {
+                    bool ok = _PlayerStatesDict.TryGetValue(player, out PlayerStates playerState);
+                    if (ok)
+                    {
+                        if (playerState != PlayerStates.Spectator)
+                        {
+                            FreezePlayer(player);
+                        }
+                    }
+                }
+            }
+        }
+
+        private void UnFreezeAllPlayers()
+        {
+            foreach (var team in _Teams)
+            {
+                foreach (var player in team.Players)
+                {
+                    bool ok = _PlayerStatesDict.TryGetValue(player, out PlayerStates playerState);
+                    if (ok)
+                    {
+                        if (playerState != PlayerStates.Spectator)
+                        {
+                            UnFreezePlayer(player);
+                        }
+                    }
+                }
+            }
         }
 
         private void BuyItemRequested(PlayerId player, string barcode)
@@ -601,7 +658,7 @@ namespace Fusion5vs5Gamemode.Server
                 {
                     return;
                 }
-                
+
                 foreach (var slot in rep.RigReferences.RigSlots)
                 {
                     if (slot._slottedWeapon != null && (slot.slotType & weaponSlot.slotType) != 0)
@@ -612,7 +669,6 @@ namespace Fusion5vs5Gamemode.Server
                 }
             }
         }
-
 
         private void OnPlayerEnteredBuyZone(PlayerId player)
         {
@@ -741,15 +797,11 @@ namespace Fusion5vs5Gamemode.Server
                             {
                                 if (playerState == PlayerStates.Dead)
                                 {
-                                    RevivePlayer(player);
+                                    ReviveAndFreezePlayer(player);
                                 }
                                 else if (playerState == PlayerStates.Alive)
                                 {
                                     RespawnPlayer(player);
-                                }
-
-                                if (playerState != PlayerStates.Spectator)
-                                {
                                     FreezePlayer(player);
                                 }
                             }
@@ -758,28 +810,18 @@ namespace Fusion5vs5Gamemode.Server
 
                     break;
                 case GameStates.PlayPhase:
-                    foreach (var team in _Teams)
-                    {
-                        foreach (var player in team.Players)
-                        {
-                            bool ok = _PlayerStatesDict.TryGetValue(player, out PlayerStates playerState);
-                            if (ok)
-                            {
-                                if (playerState != PlayerStates.Spectator)
-                                {
-                                    UnFreezePlayer(player);
-                                }
-                            }
-                        }
-                    }
+                    UnFreezeAllPlayers();
 
                     break;
                 case GameStates.RoundEndPhase:
                     break;
                 case GameStates.MatchHalfPhase:
+                    FreezeAllPlayers();
                     SwapTeams();
                     break;
                 case GameStates.MatchEndPhase:
+                    FreezeAllPlayers();
+
                     int tScore = GetTeamScore(TerroristTeam);
                     int cScore = GetTeamScore(CounterTerroristTeam);
                     if (tScore == cScore)
