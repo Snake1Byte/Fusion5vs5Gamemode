@@ -186,8 +186,5 @@ namespace Fusion5vs5Gamemode.Utilities
             SafeActions.InvokeActionSafe(OnProjectileImpactedSurface, impactOrigin, proxy, projectileOrigin, receiver,
                 attack);
         }
-            {
-            }
-        }
     }
 }
