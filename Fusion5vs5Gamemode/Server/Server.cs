@@ -316,6 +316,17 @@ namespace Fusion5vs5Gamemode.Server
                         SetPlayerState(player, PlayerStates.Dead);
                         KillPlayer(player);
                     }
+
+                    // Team used to be empty, now finish the round
+                    if (_State == GameStates.PlayPhase && selectedTeam.Players.Count == 1)
+                    {
+                        Team otherTeam = selectedTeam.Equals(CounterTerroristTeam)
+                            ? TerroristTeam
+                            : CounterTerroristTeam;
+                        IncrementTeamScore(otherTeam);
+                        Operations.InvokeTrigger($"{Events.TeamWonRound}.{otherTeam.TeamName}");
+                        NextState();
+                    }
                 }
 
                 DetermineTeamWon(player, oldTeam);
@@ -396,7 +407,7 @@ namespace Fusion5vs5Gamemode.Server
 
         private void DetermineTeamWon(PlayerId player, Team losingTeam)
         {
-            Log(player);
+            Log(player, losingTeam);
             if (_State != GameStates.PlayPhase)
                 return;
 
@@ -472,13 +483,12 @@ namespace Fusion5vs5Gamemode.Server
 
             SetPlayerKills(killer, GetPlayerKills(Operations.Metadata, killer) + 1);
             SetPlayerDeaths(killed, GetPlayerDeaths(Operations.Metadata, killed) + 1);
+            SetPlayerState(killed, PlayerStates.Dead);
 
             Operations.InvokeTrigger($"{Events.PlayerKilledPlayer}.{killer.LongId}.{killed.LongId}");
 
-
             if (_State == GameStates.PlayPhase || _State == GameStates.BuyPhase)
             {
-                SetPlayerState(killed, PlayerStates.Dead);
                 DetermineTeamWon(killed);
             }
         }
@@ -491,19 +501,20 @@ namespace Fusion5vs5Gamemode.Server
                 return;
 
             SetPlayerDeaths(playerId, GetPlayerDeaths(Operations.Metadata, playerId) + 1);
+            SetPlayerState(playerId, PlayerStates.Dead);
 
             Operations.InvokeTrigger($"{Events.PlayerSuicide}.{playerId.LongId}");
 
             if (_State == GameStates.PlayPhase || _State == GameStates.BuyPhase)
             {
-                SetPlayerState(playerId, PlayerStates.Dead);
                 DetermineTeamWon(playerId);
             }
         }
 
         private void DyingAnimationCompleted(PlayerId playerId)
         {
-            if (_State != GameStates.Warmup)
+            Log(playerId);
+            if (_State == GameStates.PlayPhase || _State == GameStates.RoundEndPhase)
                 Operations.InvokeTrigger($"{Events.SetSpectator}.{playerId.LongId}");
         }
 
@@ -645,6 +656,11 @@ namespace Fusion5vs5Gamemode.Server
             void PlaceItemInInventory(byte owner, string spawnedBarcode, GameObject spawnedGo)
             {
                 Log(owner, spawnedBarcode, spawnedGo);
+                if (barcode != spawnedBarcode)
+                {
+                    return;
+                }
+
                 SpawnResponseMessagePatches.OnSpawnFinished -= PlaceItemInInventory;
 
                 WeaponSlot weaponSlot = spawnedGo.GetComponentInChildren<WeaponSlot>();
@@ -661,7 +677,7 @@ namespace Fusion5vs5Gamemode.Server
 
                 foreach (var slot in rep.RigReferences.RigSlots)
                 {
-                    if (slot._slottedWeapon != null && (slot.slotType & weaponSlot.slotType) != 0)
+                    if (slot._slottedWeapon == null && (slot.slotType & weaponSlot.slotType) != 0)
                     {
                         slot.InsertInSlot(host);
                         return;

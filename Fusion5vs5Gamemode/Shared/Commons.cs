@@ -9,6 +9,7 @@ using Fusion5vs5Gamemode.Utilities;
 using LabFusion.Data;
 using LabFusion.Representation;
 using LabFusion.SDK.Gamemodes;
+using MelonLoader;
 
 namespace Fusion5vs5Gamemode.Shared
 {
@@ -146,79 +147,87 @@ namespace Fusion5vs5Gamemode.Shared
         public static void Log(params object[] parameters)
         {
 #if DEBUG
-            StackFrame frame = new StackFrame(1);
-            MethodBase method = frame.GetMethod();
-            if (method == null)
+            try
             {
-                return;
-            }
-
-            DateTime currentTime = DateTime.Now;
-            string formattedTime = $"[{currentTime:yyyy/MM/dd HH:mm:ss.fff}]";
-            builder.Append(formattedTime);
-            builder.Append("\t");
-
-            builder.Append(method.DeclaringType.FullName + " ");
-            int i = 0;
-            builder.Append(method.Name);
-            if (method.GetParameters().Length > 0)
-            {
-                builder.Append("(");
-                foreach (var parameter in method.GetParameters())
+                StackFrame frame = new StackFrame(1);
+                MethodBase method = frame.GetMethod();
+                if (method == null)
                 {
-                    if (i > 0)
-                    {
-                        builder.Append(", ");
-                    }
-
-                    if (parameters != null)
-                    {
-                        builder.Append(parameter);
-                        builder.Append(" = ");
-                        if (parameters[i] is string)
-                        {
-                            builder.Append("\"");
-                            builder.Append(parameters[i]);
-                            builder.Append("\"");
-                        }
-                        else if (parameters[i] is Team t)
-                        {
-                            builder.Append(t.TeamName);
-                        }
-                        else if (parameters[i] is PlayerId p)
-                        {
-                            builder.Append(p.LongId);
-                        }
-                        else if (parameters[i] is RadialMenu.RadialSubMenu r)
-                        {
-                            builder.Append($"{(r.Parent == null ? "" : $"{r.Parent.Name} + /")}{r.Name}");
-                        }
-                        else
-                        {
-                            builder.Append(parameters[i]);
-                        }
-
-                        ++i;
-                    }
+                    return;
                 }
 
-                builder.Append(")");
-                builder.Append("\n");
-            }
-            else
-            {
-                builder.Append("()");
-                builder.Append("\n");
-            }
+                DateTime currentTime = DateTime.Now;
+                string formattedTime = $"[{currentTime:yyyy/MM/dd HH:mm:ss.fff}]";
+                builder.Append(formattedTime);
+                builder.Append("\t");
 
-            Dump(builder.ToString(), @"D:\Windows User\Desktop\Fusion5vs5GamemodeDump.txt");
+                builder.Append(method.DeclaringType.FullName + " ");
+                int i = 0;
+                builder.Append(method.Name);
+                if (method.GetParameters().Length > 0)
+                {
+                    builder.Append("(");
+                    foreach (var parameter in method.GetParameters())
+                    {
+                        if (i > 0)
+                        {
+                            builder.Append(", ");
+                        }
+
+                        if (parameters != null)
+                        {
+                            builder.Append(parameter);
+                            builder.Append(" = ");
+                            if (parameters[i] is string)
+                            {
+                                builder.Append("\"");
+                                builder.Append(parameters[i]);
+                                builder.Append("\"");
+                            }
+                            else if (parameters[i] is Team t)
+                            {
+                                builder.Append(t.TeamName);
+                            }
+                            else if (parameters[i] is PlayerId p)
+                            {
+                                builder.Append(p.LongId);
+                            }
+                            else if (parameters[i] is RadialMenu.RadialSubMenu r)
+                            {
+                                builder.Append($"{(r.Parent == null ? "" : $"{r.Parent.Name} + /")}{r.Name}");
+                            }
+                            else
+                            {
+                                builder.Append(parameters[i]);
+                            }
+
+                            ++i;
+                        }
+                    }
+
+                    builder.Append(")");
+                    builder.Append("\n");
+                }
+                else
+                {
+                    builder.Append("()");
+                    builder.Append("\n");
+                }
+
+                Dump(builder.ToString(), @"D:\Windows User\Desktop\Fusion5vs5GamemodeDump.txt");
+                builder.Clear();
+            }
+            catch (Exception e)
+            {
+                MelonLogger.Error($"Exception during Log(): {e}");
+            }
 #endif
         }
 
         public static void Dump(string content, string path)
         {
 #if DEBUG
-            string filePath = path; // TODO change path
+            string filePath = path;
             try
             {
                 if (!File.Exists(filePath))
@@ -235,8 +244,6 @@ namespace Fusion5vs5Gamemode.Shared
                         sw.Write(content);
                     }
                 }
-
-                builder.Clear();
             }
             catch (Exception ex)
             {

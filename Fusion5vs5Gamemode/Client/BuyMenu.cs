@@ -14,6 +14,7 @@ namespace Fusion5vs5Gamemode.Client
         private static RadialSubMenu _Pistols;
         private static RadialSubMenu _SMGs;
         private static RadialSubMenu _Shotguns;
+
         private static RadialSubMenu _Rifles;
         // private static RadialSubMenu _SniperRifles;
         // private static RadialSubMenu _Utilities;
@@ -59,7 +60,7 @@ namespace Fusion5vs5Gamemode.Client
             _Pistols.Add(_1911);
             _Pistols.Add(P350);
             _BuyMenu.Add(_Pistols);
-            
+
             _SMGs = _BuyMenu.CreateSubMenu("SMGs", PageItem.Directions.WEST);
             UMP = new RadialMenuItem("UMP", PageItem.Directions.WEST,
                 () => Internal_OnBuyMenuItemClicked(CommonBarcodes.Guns.UMP));
@@ -71,7 +72,7 @@ namespace Fusion5vs5Gamemode.Client
             _SMGs.Add(MP5);
             _SMGs.Add(Vector);
             _BuyMenu.Add(_SMGs);
-            
+
             _Shotguns = _BuyMenu.CreateSubMenu("Shotguns", PageItem.Directions.NORTHEAST);
             FAB = new RadialMenuItem("FAB", PageItem.Directions.WEST,
                 () => Internal_OnBuyMenuItemClicked(CommonBarcodes.Guns.FAB));
@@ -83,7 +84,7 @@ namespace Fusion5vs5Gamemode.Client
             _Shotguns.Add(M4);
             _Shotguns.Add(_590A1);
             _BuyMenu.Add(_Shotguns);
-            
+
             _Rifles = _BuyMenu.CreateSubMenu("Rifles", PageItem.Directions.NORTH);
             MK18 = new RadialMenuItem("MK18", PageItem.Directions.NORTH,
                 () => Internal_OnBuyMenuItemClicked(CommonBarcodes.Guns.MK18HoloForegrip));
@@ -109,10 +110,7 @@ namespace Fusion5vs5Gamemode.Client
 
         internal static void Internal_OnBuyMenuItemClicked(string barcode)
         {
-            if (OnBuyMenuItemClicked != null)
-            {
-                OnBuyMenuItemClicked(barcode);
-            }
+            SafeActions.InvokeActionSafe(OnBuyMenuItemClicked, barcode);
         }
     }
 }

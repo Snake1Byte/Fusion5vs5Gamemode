@@ -85,6 +85,11 @@ namespace Fusion5vs5Gamemode.Client
         private BoolElement _EnableLateJoiningSetting;
         private BoolElement _AllowAvatarChangingSetting;
 
+        private object _FreezeLock = new object();
+        
+        private bool _InsideTBuyZone;
+        private bool _InsideCTBuyZone;
+
         // Settings
         public int MaxRounds { get; private set; } = 15;
         public bool HalfTimeEnabled { get; private set; } = true;
@@ -299,11 +304,17 @@ namespace Fusion5vs5Gamemode.Client
             base.OnStopGamemode();
             MelonLogger.Msg("5vs5 Mode: OnStopGamemode Called.");
 
+            Revive();
             UnFreeze();
 
             if (NetworkInfo.IsServer && Server != null)
             {
                 Server.Dispose();
+            }
+
+            if (_UITimer != null)
+            {
+                _UITimer.Dispose();
             }
 
             _Menu.Elements.Insert(0, _EnableHalfTimeSetting);
@@ -322,6 +333,7 @@ namespace Fusion5vs5Gamemode.Client
             TriggerLasersEvents.OnTriggerEntered -= OnTriggerEntered;
             TriggerLasersEvents.OnTriggerExited -= OnTriggerExited;
 
+            BuyMenu.RemoveBuyMenu();
             BuyMenu.OnBuyMenuItemClicked -= OnBuyMenuItemClicked;
 
             TeamSelectionMenu.RemoveTeamsMenu();
@@ -477,8 +489,7 @@ namespace Fusion5vs5Gamemode.Client
                 PlayerId player = GetPlayerFromValue(_player);
                 if (player.IsSelf)
                 {
-                    Revive();
-                    Freeze();
+                    ReviveAndFreeze();
                 }
             }
             else if (eventName.StartsWith(Events.RespawnPlayer))
@@ -749,6 +760,14 @@ namespace Fusion5vs5Gamemode.Client
             Log(player, team);
             if (player.IsSelf)
             {
+                if (team.Team == Fusion5vs5GamemodeTeams.Terrorists && _InsideTBuyZone)
+                {
+                    BuyMenu.AddBuyMenu();
+                } else if (team.Team == Fusion5vs5GamemodeTeams.CounterTerrorists && _InsideCTBuyZone)
+                {
+                    BuyMenu.AddBuyMenu();
+                }
+                
                 _LocalTeam = team.Team;
                 Notify($"Joined {team.DisplayName}", "");
             }
@@ -867,6 +886,18 @@ namespace Fusion5vs5Gamemode.Client
             Respawn();
         }
 
+        private void ReviveAndFreeze()
+        {
+            Log();
+            // TODO give back interactability and visibility
+            FusionPlayerExtended.worldInteractable = true;
+            FusionPlayerExtended.canSendDamage = true;
+            FusionPlayer.ClearAvatarOverride();
+            RigManager rm = RigData.RigReferences.RigManager;
+            rm.SwapAvatarCrate(_LastLocalAvatar, true, (Action<bool>)(e => Freeze()));
+            Respawn();
+        }
+
         /// <summary>
         /// Enters the local player into the spectator avatar, where they're then taken away of their visibility from
         /// other players and their interactability with the world. Typically called by other methods such as
@@ -957,25 +988,42 @@ namespace Fusion5vs5Gamemode.Client
         private void Freeze()
         {
             Log();
-            if (!_LocalPlayerFrozen)
+            lock (_FreezeLock)
             {
-                RemapRig rig = RigData.RigReferences.RigManager.remapHeptaRig;
-                rig.jumpEnabled = false;
-                _LocalPlayerVelocity = rig.maxVelocity;
-                rig.maxVelocity = 0.001f;
+                if (!_LocalPlayerFrozen)
+                {
+                    _LocalPlayerFrozen = true;
 
-                _LocalPlayerFrozen = true;
+                    MelonLogger.Msg(
+                        $"1: Current avatar on Freeze: {RigData.RigReferences.RigManager.AvatarCrate._barcode} with _LocalPlayerVelocity: {_LocalPlayerVelocity}");
+                    RemapRig rig = RigData.RigReferences.RigManager.remapHeptaRig;
+                    rig.jumpEnabled = false;
+                    _LocalPlayerVelocity = rig.maxVelocity;
+                    rig.maxVelocity = 0.001f;
+                    MelonLogger.Msg(
+                        $"2: Current avatar on Freeze: {RigData.RigReferences.RigManager.AvatarCrate._barcode} with _LocalPlayerVelocity: {_LocalPlayerVelocity}");
+                }
             }
         }
 
         private void UnFreeze()
         {
             Log();
-            RemapRig rig = RigData.RigReferences.RigManager.remapHeptaRig;
-            rig.jumpEnabled = true;
-            rig.maxVelocity = _LocalPlayerVelocity;
+            lock (_FreezeLock)
+            {
+                if (_LocalPlayerFrozen)
+                {
+                    _LocalPlayerFrozen = false;
 
-            _LocalPlayerFrozen = false;
+                    MelonLogger.Msg(
+                        $"1: Current avatar on UnFreeze(): {RigData.RigReferences.RigManager.AvatarCrate._barcode} with _LocalPlayerVelocity: {_LocalPlayerVelocity}");
+                    RemapRig rig = RigData.RigReferences.RigManager.remapHeptaRig;
+                    rig.jumpEnabled = true;
+                    rig.maxVelocity = _LocalPlayerVelocity;
+                    MelonLogger.Msg(
+                        $"2: Current avatar on UnFreeze(): {RigData.RigReferences.RigManager.AvatarCrate._barcode} with _LocalPlayerVelocity: {_LocalPlayerVelocity}");
+                }
+            }
         }
 
 
@@ -1017,18 +1065,20 @@ namespace Fusion5vs5Gamemode.Client
                 tTrigger.obj_SpecificTrigger = tTrigger.gameObject;
             }
 
-            if (_LocalTeam == Fusion5vs5GamemodeTeams.CounterTerrorists)
+            if (ctTrigger != null && ctTrigger.GetInstanceID() == obj.GetInstanceID())
             {
-                if (ctTrigger != null && ctTrigger.GetInstanceID() == obj.GetInstanceID())
+                if (_LocalTeam == Fusion5vs5GamemodeTeams.CounterTerrorists)
                 {
+                    _InsideCTBuyZone = true;
                     OnBuyZoneEntered();
                 }
             }
-            else if (_LocalTeam == Fusion5vs5GamemodeTeams.Terrorists)
+            else if (tTrigger != null && tTrigger.GetInstanceID() == obj.GetInstanceID())
             {
-                if (tTrigger != null && tTrigger.GetInstanceID() == obj.GetInstanceID())
+                if (_LocalTeam == Fusion5vs5GamemodeTeams.Terrorists)
                 {
                     tTrigger.obj_SpecificTrigger = _Descriptor.TerroristBuyZone.gameObject;
+                    _InsideTBuyZone = true;
                     OnBuyZoneEntered();
                 }
             }
@@ -1037,20 +1087,25 @@ namespace Fusion5vs5Gamemode.Client
         private void OnTriggerExited(TriggerLasers obj)
         {
             Log(obj);
-            if (_LocalTeam == Fusion5vs5GamemodeTeams.CounterTerrorists)
+            TriggerLasers ctTrigger = _Descriptor.CounterTerroristBuyZone.gameObject.GetComponent<TriggerLasers>();
+            TriggerLasers tTrigger = _Descriptor.TerroristBuyZone.gameObject.GetComponent<TriggerLasers>();
+            if (ctTrigger != null && ctTrigger.GetInstanceID() == obj.GetInstanceID())
             {
-                TriggerLasers trigger = _Descriptor.CounterTerroristBuyZone.gameObject.GetComponent<TriggerLasers>();
-                if (trigger != null && trigger.GetInstanceID() == obj.GetInstanceID())
+                _InsideCTBuyZone = false;
+                if (_LocalTeam == Fusion5vs5GamemodeTeams.CounterTerrorists)
                 {
                     OnBuyZoneExited();
                 }
             }
             else
             {
-                TriggerLasers trigger = _Descriptor.TerroristBuyZone.gameObject.GetComponent<TriggerLasers>();
-                if (trigger != null && trigger.GetInstanceID() == obj.GetInstanceID())
+                if (tTrigger != null && tTrigger.GetInstanceID() == obj.GetInstanceID())
                 {
-                    OnBuyZoneExited();
+                    _InsideTBuyZone = false;
+                    if (_LocalTeam == Fusion5vs5GamemodeTeams.Terrorists)
+                    {
+                        OnBuyZoneExited();
+                    }
                 }
             }
         }
