@@ -1,5 +1,6 @@
 ﻿using System;
 using BoneLib;
+using MelonLoader;
 using SLZ.UI;
 using static Fusion5vs5Gamemode.Utilities.RadialMenu;
 
@@ -101,11 +102,36 @@ namespace Fusion5vs5Gamemode.Client
         public static void AddBuyMenu()
         {
             AddRootMenu(_BuyMenu);
+            if (InRootLevel && IsActive)
+            {
+                DeactivateRadialMenu();
+                ActivateRadialMenu();
+            }
         }
 
         public static void RemoveBuyMenu()
         {
             RemoveRootMenu(_BuyMenu);
+            if (InRootLevel && IsActive)
+            {
+                DeactivateRadialMenu();
+                ActivateRadialMenu();
+            }
+            else if (IsActive)
+            {
+                RadialSubMenu currentSubMenu = CurrentCustomSubMenu;
+                MelonLogger.Msg($"Current Custom SubMenu: {currentSubMenu.Name}");
+                if (currentSubMenu == null)
+                    return;
+
+                if (currentSubMenu == _BuyMenu || IsSubMenuInsideChildren(_BuyMenu, currentSubMenu))
+                {
+                    MelonLogger.Msg("We are in a sub menu of BuyMenu.");
+                    DeactivateRadialMenu();
+                    ReturnToRootLevel();
+                    ActivateRadialMenu();
+                }
+            }
         }
 
         internal static void Internal_OnBuyMenuItemClicked(string barcode)

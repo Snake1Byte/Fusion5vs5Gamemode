@@ -721,7 +721,6 @@ namespace Fusion5vs5Gamemode.Server
             _BuyTimer = new Timer();
             _BuyTimer.AutoReset = false;
             _BuyTimer.Elapsed += (sender, args) => _BuyTimeOver = true;
-            _BuyTimer.Interval = 40 * 1000;
             NextState();
         }
 
@@ -802,6 +801,7 @@ namespace Fusion5vs5Gamemode.Server
                     IncrementRoundNumber();
 
                     _BuyTimeOver = false;
+                    _BuyTimer.Interval = 40 * 1000;
                     _BuyTimer.Start();
 
                     foreach (var team in _Teams)

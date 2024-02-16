@@ -70,7 +70,7 @@ namespace Fusion5vs5Gamemode.Client
         private string _CounterTerroristTeamName;
         private string _TerroristTeamName;
 
-        private Fusion5vs5GamemodeTeams _LocalTeam;
+        private Fusion5vs5GamemodeTeams? _LocalTeam;
         private SpawnPointRepresentation _LocalSpawnPoint;
         private float _LocalPlayerVelocity;
         private string _LastLocalAvatar;
@@ -86,7 +86,7 @@ namespace Fusion5vs5Gamemode.Client
         private BoolElement _AllowAvatarChangingSetting;
 
         private object _FreezeLock = new object();
-        
+
         private bool _InsideTBuyZone;
         private bool _InsideCTBuyZone;
 
@@ -304,8 +304,13 @@ namespace Fusion5vs5Gamemode.Client
             base.OnStopGamemode();
             MelonLogger.Msg("5vs5 Mode: OnStopGamemode Called.");
 
-            Revive();
+            FusionPlayerExtended.worldInteractable = true;
+            FusionPlayerExtended.canSendDamage = true;
+            FusionPlayer.ClearAvatarOverride();
+            RigManager rm = RigData.RigReferences.RigManager;
+            rm.SwapAvatarCrate(_LastLocalAvatar, true);
             UnFreeze();
+            _LocalTeam = null;
 
             if (NetworkInfo.IsServer && Server != null)
             {
@@ -577,6 +582,7 @@ namespace Fusion5vs5Gamemode.Client
                 PlayerId player = GetPlayerFromValue(_player);
                 if (player.IsSelf)
                 {
+                    _LocalTeam = null;
                     SetSpectator();
                     Notify("Joined Spectators", "You can join a team from <UI component>"); // TODO 
                 }
@@ -600,6 +606,10 @@ namespace Fusion5vs5Gamemode.Client
 
                     SetFusionSpawnPoint(pos, rot);
                 }
+            }
+            else if (eventName.Equals(Events.BuyTimeOver))
+            {
+                BuyMenu.RemoveBuyMenu();
             }
 
             UpdateDebugText(eventName);
@@ -681,7 +691,11 @@ namespace Fusion5vs5Gamemode.Client
         {
             Log();
 
-            if (_LocalTeam == _DefendingTeam)
+            if (_LocalTeam == null)
+            {
+                Notify("Round start", "You are spectating.");
+            }
+            else if (_LocalTeam == _DefendingTeam)
             {
                 // TODO change notification
                 Notify("Round start", "Do defending team stuff...");
@@ -704,11 +718,17 @@ namespace Fusion5vs5Gamemode.Client
         private void StartMatchHalfPhase()
         {
             Log();
-
-            Fusion5vs5GamemodeTeams team = _LocalTeam == Fusion5vs5GamemodeTeams.Terrorists
-                ? Fusion5vs5GamemodeTeams.CounterTerrorists
-                : Fusion5vs5GamemodeTeams.Terrorists;
-            Notify("Switching sides", $"Switching to team {GetTeamDisplayName(team)}.");
+            if (_LocalTeam == null)
+            {
+                Notify("Switching sides", "");
+            }
+            else
+            {
+                Fusion5vs5GamemodeTeams team = _LocalTeam == Fusion5vs5GamemodeTeams.Terrorists
+                    ? Fusion5vs5GamemodeTeams.CounterTerrorists
+                    : Fusion5vs5GamemodeTeams.Terrorists;
+                Notify("Switching sides", $"Switching to team {GetTeamDisplayName(team)}.");
+            }
 
             OnSwapTeams();
 
@@ -763,11 +783,12 @@ namespace Fusion5vs5Gamemode.Client
                 if (team.Team == Fusion5vs5GamemodeTeams.Terrorists && _InsideTBuyZone)
                 {
                     BuyMenu.AddBuyMenu();
-                } else if (team.Team == Fusion5vs5GamemodeTeams.CounterTerrorists && _InsideCTBuyZone)
+                }
+                else if (team.Team == Fusion5vs5GamemodeTeams.CounterTerrorists && _InsideCTBuyZone)
                 {
                     BuyMenu.AddBuyMenu();
                 }
-                
+
                 _LocalTeam = team.Team;
                 Notify($"Joined {team.DisplayName}", "");
             }
@@ -827,6 +848,12 @@ namespace Fusion5vs5Gamemode.Client
         private void OnSwapTeams()
         {
             Log();
+            if (_LocalTeam != null)
+            {
+                _LocalTeam = _LocalTeam == Fusion5vs5GamemodeTeams.Terrorists
+                    ? Fusion5vs5GamemodeTeams.CounterTerrorists
+                    : Fusion5vs5GamemodeTeams.Terrorists;
+            }
             // TODO Implement UI changes
         }
 
@@ -1067,18 +1094,18 @@ namespace Fusion5vs5Gamemode.Client
 
             if (ctTrigger != null && ctTrigger.GetInstanceID() == obj.GetInstanceID())
             {
+                _InsideCTBuyZone = true;
                 if (_LocalTeam == Fusion5vs5GamemodeTeams.CounterTerrorists)
                 {
-                    _InsideCTBuyZone = true;
                     OnBuyZoneEntered();
                 }
             }
             else if (tTrigger != null && tTrigger.GetInstanceID() == obj.GetInstanceID())
             {
+                _InsideTBuyZone = true;
                 if (_LocalTeam == Fusion5vs5GamemodeTeams.Terrorists)
                 {
                     tTrigger.obj_SpecificTrigger = _Descriptor.TerroristBuyZone.gameObject;
-                    _InsideTBuyZone = true;
                     OnBuyZoneEntered();
                 }
             }

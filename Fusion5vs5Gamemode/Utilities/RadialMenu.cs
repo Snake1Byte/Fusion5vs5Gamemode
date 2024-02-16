@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using BoneLib;
 using Fusion5vs5Gamemode.Utilities.HarmonyPatches;
 using LabFusion.Data;
+using MelonLoader;
 using SLZ.Rig;
 using SLZ.UI;
 using UnityEngine;
@@ -24,16 +26,29 @@ namespace Fusion5vs5Gamemode.Utilities
         internal static List<PageItem> RootPageBackup = new List<PageItem>();
 
         internal static bool InRootLevel = true;
+        internal static bool Active = false;
+        public static bool IsInRootLevel => InRootLevel;
+        public static bool IsActive => Active;
+        public static RadialSubMenu CurrentCustomSubMenu { get; private set; }
 
         static RadialMenu()
         {
             PopUpMenuViewPatches.OnPopUpMenuActivate += OnPopUpMenuActivate;
+            PopUpMenuViewPatches.OnPopUpMenuDeactivate += OnPopUpMenuDeacivate;
+            Hooking.OnLevelInitialized += EmptyLists;
+        }
+
+        private static void EmptyLists(LevelInfo info)
+        {
+            RootPageBackup.Clear();
+            _RootMenusAsPageItems.Clear();
         }
 
         private static void OnPopUpMenuActivate(Transform headTransform, Transform rootTransform,
             UIControllerInput controllerInput, BaseController controller)
         {
             Log(headTransform, rootTransform, controllerInput, controller);
+            Active = true;
             LastActivatePopupParams = new ActivatePopupParams
             {
                 headTransform = headTransform,
@@ -52,6 +67,11 @@ namespace Fusion5vs5Gamemode.Utilities
             RenderRootMenus();
         }
 
+        private static void OnPopUpMenuDeacivate()
+        {
+            Active = false;
+        }
+
         private static void RenderRootMenus()
         {
             Log();
@@ -65,6 +85,8 @@ namespace Fusion5vs5Gamemode.Utilities
                 RootPageBackup.AddRange(_HomePage.items.ToArray());
             }
 
+            CurrentCustomSubMenu = null;
+
             foreach (var rootMenu in RootMenus)
             {
                 if (!_RootMenusAsPageItems.TryGetValue(rootMenu, out PageItem pageItem))
@@ -76,7 +98,10 @@ namespace Fusion5vs5Gamemode.Utilities
                 }
                 else
                 {
-                    _HomePage.items.Add(pageItem);
+                    if (!_HomePage.items.Contains(pageItem))
+                    {
+                        _HomePage.items.Add(pageItem);
+                    }
                 }
             }
         }
@@ -87,6 +112,7 @@ namespace Fusion5vs5Gamemode.Utilities
             DeactivateRadialMenu();
 
             InRootLevel = false;
+            CurrentCustomSubMenu = subMenuClicked;
             _HomePage.items.Clear();
             foreach (RadialMenuElement element in subMenuClicked)
             {
@@ -107,7 +133,7 @@ namespace Fusion5vs5Gamemode.Utilities
             ActivateRadialMenu();
         }
 
-        private static void ActivateRadialMenu()
+        public static void ActivateRadialMenu()
         {
             Log();
             if (LastActivatePopupParams.HasValue)
@@ -117,7 +143,7 @@ namespace Fusion5vs5Gamemode.Utilities
             }
         }
 
-        private static void DeactivateRadialMenu()
+        public static void DeactivateRadialMenu()
         {
             Log();
             ActivatePopupParams? arg = null;
@@ -152,6 +178,13 @@ namespace Fusion5vs5Gamemode.Utilities
         {
             Log(name, direction);
             RadialSubMenu menu = new RadialSubMenu(name, direction);
+
+            RadialSubMenu item = RootMenus.Find(e => e.Direction == menu.Direction);
+            if (item != null)
+            {
+                RemoveRootMenu(item);
+            }
+
             RootMenus.Add(menu);
             return menu;
         }
@@ -159,6 +192,13 @@ namespace Fusion5vs5Gamemode.Utilities
         public static RadialSubMenu AddRootMenu(RadialSubMenu menu)
         {
             Log(menu);
+
+            RadialSubMenu item = RootMenus.Find(e => e.Direction == menu.Direction);
+            if (item != null)
+            {
+                RemoveRootMenu(item);
+            }
+
             RootMenus.Add(menu);
             return menu;
         }
@@ -167,13 +207,30 @@ namespace Fusion5vs5Gamemode.Utilities
         {
             Log(menu);
 
+            if (menu == null)
+            {
+                return;
+            }
+
             if (_RootMenusAsPageItems.TryGetValue(menu, out PageItem pageItem))
             {
                 _RootMenusAsPageItems.Remove(menu);
                 RootMenus.Remove(menu);
                 if (InRootLevel)
                 {
-                    _HomePage.items.Remove(pageItem);
+                    List<PageItem> toRemove = new List<PageItem>();
+                    foreach (PageItem item in _HomePage.items)
+                    {
+                        if (item.Equals(pageItem))
+                        {
+                            toRemove.Add(item);
+                        }
+                    }
+
+                    foreach (var item in toRemove)
+                    {
+                        _HomePage.items.Remove(item);
+                    }
                 }
             }
         }
@@ -287,18 +344,7 @@ namespace Fusion5vs5Gamemode.Utilities
                 {
                     DeactivateRadialMenu();
 
-                    InRootLevel = true;
-                    _HomePage.items.Clear();
-
-                    foreach (var pageItem in RootPageBackup)
-                    {
-                        _HomePage.items.Add(pageItem);
-                    }
-
-                    foreach (var customPageItems in _RootMenusAsPageItems.Values)
-                    {
-                        _HomePage.items.Add(customPageItems);
-                    }
+                    ReturnToRootLevel();
 
                     if (RootMenus.Contains(subMenu))
                     {
@@ -331,6 +377,51 @@ namespace Fusion5vs5Gamemode.Utilities
                 Name = name;
                 Direction = direction;
                 OnItemClicked = onItemClicked;
+            }
+        }
+
+        public static void ReturnToRootLevel()
+        {
+            InRootLevel = true;
+            _HomePage.items.Clear();
+
+            foreach (var pageItem in RootPageBackup)
+            {
+                _HomePage.items.Add(pageItem);
+            }
+        }
+
+        public static bool IsSubMenuInsideChildren(RadialSubMenu parent, RadialSubMenu descendant)
+        {
+            MelonLogger.Msg(
+                $"Searching for {(descendant == null ? "a null descendant" : descendant.Name)} inside of {(parent == null ? "a null parent" : parent.Name)}.");
+            try
+            {
+                foreach (var element in parent)
+                {
+                    if (element is RadialSubMenu menu)
+                    {
+                        if (menu.Equals(descendant))
+                        {
+                            return true;
+                        }
+                        else
+                        {
+                            if (IsSubMenuInsideChildren(menu, descendant))
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                }
+
+                return false;
+            }
+            catch (Exception e)
+            {
+                MelonLogger.Warning(
+                    $"Aborting Sub Menu search of {(parent == null ? "a null parent" : parent.Name)} in {(descendant == null ? " a null descendant" : descendant.Name)}. Exception was thrown: {e}");
+                return false;
             }
         }
 

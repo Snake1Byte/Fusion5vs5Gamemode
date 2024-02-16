@@ -48,6 +48,7 @@ namespace Fusion5vs5Gamemode.Shared
             public const string PlayerLeft = "PlayerLeft";
             public const string PlayerSpectates = "PlayerSpectates";
             public const string SpawnPointAssigned = "SpawnPointAssigned";
+            public const string BuyTimeOver = "BuyTimeOver";
         }
 
         public static class ClientRequest
@@ -194,7 +195,7 @@ namespace Fusion5vs5Gamemode.Shared
                             }
                             else if (parameters[i] is RadialMenu.RadialSubMenu r)
                             {
-                                builder.Append($"{(r.Parent == null ? "" : $"{r.Parent.Name} + /")}{r.Name}");
+                                builder.Append($"{(r.Parent == null ? "" : $"{r.Parent.Name}/")}{r.Name}");
                             }
                             else
                             {
