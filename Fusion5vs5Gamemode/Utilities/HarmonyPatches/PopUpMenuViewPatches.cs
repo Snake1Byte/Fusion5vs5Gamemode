@@ -13,12 +13,15 @@ namespace Fusion5vs5Gamemode.Utilities.HarmonyPatches
         public static Action<Transform, Transform, UIControllerInput, BaseController> OnPopUpMenuActivate;
         public static Action OnPopUpMenuDeactivate;
 
+        private static bool _Active;
+
         [HarmonyPrefix]
         [HarmonyPatch(nameof(PopUpMenuView.Activate))]
         public static void Activate(PopUpMenuView __instance, Transform headTransform, Transform rootTransform,
             UIControllerInput controllerInput,
             BaseController controller)
         {
+            _Active = true;
             if (__instance.GetComponentInParent<RigManager>() == RigData.RigReferences.RigManager)
             {
                 SafeActions.InvokeActionSafe(OnPopUpMenuActivate, headTransform, rootTransform, controllerInput,
@@ -30,7 +33,77 @@ namespace Fusion5vs5Gamemode.Utilities.HarmonyPatches
         [HarmonyPatch(nameof(PopUpMenuView.Deactivate))]
         public static void Deactivate()
         {
-            BoneLib.SafeActions.InvokeActionSafe(OnPopUpMenuDeactivate);
+            if (_Active)
+            {
+                _Active = false;
+                BoneLib.SafeActions.InvokeActionSafe(OnPopUpMenuDeactivate);
+            }
+        }
+
+        [HarmonyPrefix]
+        [HarmonyPatch(nameof(PopUpMenuView._AddPreferencesMenu_b__61_0))]
+        public static void _AddPreferencesMenu_b__61_0()
+        {
+            if (_Active)
+            {
+                _Active = false;
+                BoneLib.SafeActions.InvokeActionSafe(OnPopUpMenuDeactivate);
+            }
+        }
+
+        [HarmonyPrefix]
+        [HarmonyPatch(nameof(PopUpMenuView._AddInventoryMenu_b__62_0))]
+        public static void _AddInventoryMenu_b__62_0()
+        {
+            if (_Active)
+            {
+                _Active = false;
+                BoneLib.SafeActions.InvokeActionSafe(OnPopUpMenuDeactivate);
+            }
+        }
+
+        [HarmonyPrefix]
+        [HarmonyPatch(nameof(PopUpMenuView._AddSpawnMenu_b__65_0))]
+        public static void _AddSpawnMenu_b__65_0()
+        {
+            if (_Active)
+            {
+                _Active = false;
+                BoneLib.SafeActions.InvokeActionSafe(OnPopUpMenuDeactivate);
+            }
+        }
+
+        [HarmonyPrefix]
+        [HarmonyPatch(nameof(PopUpMenuView._AddMagEjectMenu_b__67_0))]
+        public static void _AddMagEjectMenu_b__67_0()
+        {
+            if (_Active)
+            {
+                _Active = false;
+                BoneLib.SafeActions.InvokeActionSafe(OnPopUpMenuDeactivate);
+            }
+        }
+
+        [HarmonyPrefix]
+        [HarmonyPatch(nameof(PopUpMenuView._AddScenesMenu_b__69_0))]
+        public static void _AddScenesMenu_b__69_0()
+        {
+            if (_Active)
+            {
+                _Active = false;
+                BoneLib.SafeActions.InvokeActionSafe(OnPopUpMenuDeactivate);
+            }
+        }
+
+        [HarmonyPrefix]
+        [HarmonyPatch(nameof(PopUpMenuView._AddAvatarsMenu_b__71_0))]
+        public static void _AddAvatarsMenu_b__71_0()
+        {
+            if (_Active)
+            {
+                _Active = false;
+                BoneLib.SafeActions.InvokeActionSafe(OnPopUpMenuDeactivate);
+            }
         }
 
         /*

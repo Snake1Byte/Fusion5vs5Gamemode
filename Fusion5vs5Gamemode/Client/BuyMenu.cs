@@ -93,9 +93,9 @@ namespace Fusion5vs5Gamemode.Client
                 () => Internal_OnBuyMenuItemClicked(CommonBarcodes.Guns.AKM));
             PDRC = new RadialMenuItem("PDRC", PageItem.Directions.WEST,
                 () => Internal_OnBuyMenuItemClicked(CommonBarcodes.Guns.PDRC));
-            _Rifles.Add(FAB);
-            _Rifles.Add(M4);
-            _Rifles.Add(_590A1);
+            _Rifles.Add(MK18);
+            _Rifles.Add(AKM);
+            _Rifles.Add(PDRC);
             _BuyMenu.Add(_Rifles);
         }
 
@@ -117,19 +117,27 @@ namespace Fusion5vs5Gamemode.Client
                 DeactivateRadialMenu();
                 ActivateRadialMenu();
             }
-            else if (IsActive)
+            else
             {
                 RadialSubMenu currentSubMenu = CurrentCustomSubMenu;
-                MelonLogger.Msg($"Current Custom SubMenu: {currentSubMenu.Name}");
                 if (currentSubMenu == null)
                     return;
+                
+                MelonLogger.Msg($"Current Custom SubMenu: {currentSubMenu.Name}");
 
                 if (currentSubMenu == _BuyMenu || IsSubMenuInsideChildren(_BuyMenu, currentSubMenu))
                 {
                     MelonLogger.Msg("We are in a sub menu of BuyMenu.");
-                    DeactivateRadialMenu();
-                    ReturnToRootLevel();
-                    ActivateRadialMenu();
+                    if (IsActive)
+                    {
+                        DeactivateRadialMenu();
+                        ReturnToRootLevel();
+                        ActivateRadialMenu();
+                    }
+                    else
+                    {
+                        ReturnToRootLevel();
+                    }
                 }
             }
         }

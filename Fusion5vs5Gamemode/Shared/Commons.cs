@@ -49,6 +49,7 @@ namespace Fusion5vs5Gamemode.Shared
             public const string PlayerSpectates = "PlayerSpectates";
             public const string SpawnPointAssigned = "SpawnPointAssigned";
             public const string BuyTimeOver = "BuyTimeOver";
+            public const string BuyTimeStart = "BuyTimeStart";
         }
 
         public static class ClientRequest

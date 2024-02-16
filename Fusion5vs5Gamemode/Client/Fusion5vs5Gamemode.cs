@@ -77,7 +77,7 @@ namespace Fusion5vs5Gamemode.Client
         private bool _LocalPlayerFrozen;
 
 
-        private GameStates _State = GameStates.Unknown;
+        private GameStates _State;
 
         private MenuCategory _Menu;
         private IntElement _MaxRoundsSetting;
@@ -89,6 +89,7 @@ namespace Fusion5vs5Gamemode.Client
 
         private bool _InsideTBuyZone;
         private bool _InsideCTBuyZone;
+        private bool _IsBuyTime;
 
         // Settings
         public int MaxRounds { get; private set; } = 15;
@@ -311,6 +312,7 @@ namespace Fusion5vs5Gamemode.Client
             rm.SwapAvatarCrate(_LastLocalAvatar, true);
             UnFreeze();
             _LocalTeam = null;
+            _IsBuyTime = false;
 
             if (NetworkInfo.IsServer && Server != null)
             {
@@ -348,18 +350,19 @@ namespace Fusion5vs5Gamemode.Client
 
             FusionPlayer.ClearPlayerVitality();
 
-            _Descriptor = null;
-            _CounterTerroristTeamName = null;
-            _TerroristTeamName = null;
-            _LocalPlayerVelocity = 0;
-            _LastLocalAvatar = null;
+            _Descriptor = default;
+            _CounterTerroristTeamName = default;
+            _TerroristTeamName = default;
+            _LocalPlayerVelocity = default;
+            _LastLocalAvatar = default;
             _State = GameStates.Unknown;
 
-            _DebugText = null;
+            _DebugText = default;
         }
 
         private void OnFusion5vs5Started()
         {
+            Log();
             if (_Debug)
             {
                 if (FusionSceneManager.Level._barcode.Equals("Snek.csoffice.Level.Csoffice"))
@@ -583,7 +586,7 @@ namespace Fusion5vs5Gamemode.Client
                 if (player.IsSelf)
                 {
                     _LocalTeam = null;
-                    SetSpectator();
+                    Kill();
                     Notify("Joined Spectators", "You can join a team from <UI component>"); // TODO 
                 }
             }
@@ -609,7 +612,16 @@ namespace Fusion5vs5Gamemode.Client
             }
             else if (eventName.Equals(Events.BuyTimeOver))
             {
+                _IsBuyTime = false;
                 BuyMenu.RemoveBuyMenu();
+            }
+            else if (eventName.Equals(Events.BuyTimeStart))
+            {
+                _IsBuyTime = true;
+                if (IsInsideBuyZone())
+                {
+                    BuyMenu.AddBuyMenu();
+                }
             }
 
             UpdateDebugText(eventName);
@@ -632,6 +644,7 @@ namespace Fusion5vs5Gamemode.Client
 
         private void OnStateChanged(GameStates state)
         {
+            Log(_State);
             MelonLogger.Msg($"New game state {state}.");
 
             _UITimer.Stop();
@@ -665,8 +678,6 @@ namespace Fusion5vs5Gamemode.Client
                     MelonLogger.Warning($"Could not execute the state {state}!");
                     break;
             }
-
-            Log(_State);
         }
 
         private void StartWarmupPhase()
@@ -780,16 +791,17 @@ namespace Fusion5vs5Gamemode.Client
             Log(player, team);
             if (player.IsSelf)
             {
-                if (team.Team == Fusion5vs5GamemodeTeams.Terrorists && _InsideTBuyZone)
+                _LocalTeam = team.Team;
+
+                if (IsInsideBuyZone())
                 {
-                    BuyMenu.AddBuyMenu();
+                    OnBuyZoneEntered();
                 }
-                else if (team.Team == Fusion5vs5GamemodeTeams.CounterTerrorists && _InsideCTBuyZone)
+                else
                 {
-                    BuyMenu.AddBuyMenu();
+                    OnBuyZoneExited();
                 }
 
-                _LocalTeam = team.Team;
                 Notify($"Joined {team.DisplayName}", "");
             }
 
@@ -964,6 +976,7 @@ namespace Fusion5vs5Gamemode.Client
         /// </summary>
         private void SpawnRagdoll()
         {
+            Log();
             RigManager rm = RigData.RigReferences.RigManager;
             Transform transform = rm.physicsRig.m_pelvis;
             SpawnManager.SpawnRagdoll(_LastLocalAvatar, transform.position, transform.rotation,
@@ -1054,8 +1067,28 @@ namespace Fusion5vs5Gamemode.Client
         }
 
 
+        private bool IsInsideBuyZone()
+        {
+            if (!_LocalTeam.HasValue)
+            {
+                return false;
+            }
+            
+            if (_LocalTeam.Value == Fusion5vs5GamemodeTeams.Terrorists && _InsideTBuyZone)
+            {
+                return true;
+            }
+            else if (_LocalTeam.Value == Fusion5vs5GamemodeTeams.CounterTerrorists && _InsideCTBuyZone)
+            {
+                return true;
+            }
+
+            return false;
+        }
+
         private void OnBuyMenuItemClicked(string barcode)
         {
+            Log(barcode);
             RequestToServer($"{ClientRequest.BuyItem}.{PlayerIdManager.LocalId.LongId}.{barcode}");
         }
 
@@ -1063,8 +1096,11 @@ namespace Fusion5vs5Gamemode.Client
         {
             Log();
             MelonLogger.Msg("Buy Zone entered.");
-            BuyMenu.AddBuyMenu();
             RequestToServer($"{ClientRequest.BuyZoneEntered}.{PlayerIdManager.LocalId.LongId}");
+            if (_IsBuyTime)
+            {
+                BuyMenu.AddBuyMenu();
+            }
         }
 
         private void OnBuyZoneExited()

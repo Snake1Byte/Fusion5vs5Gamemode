@@ -179,14 +179,7 @@ namespace Fusion5vs5Gamemode.Utilities
             Log(name, direction);
             RadialSubMenu menu = new RadialSubMenu(name, direction);
 
-            RadialSubMenu item = RootMenus.Find(e => e.Direction == menu.Direction);
-            if (item != null)
-            {
-                RemoveRootMenu(item);
-            }
-
-            RootMenus.Add(menu);
-            return menu;
+            return AddRootMenu(menu);
         }
 
         public static RadialSubMenu AddRootMenu(RadialSubMenu menu)
@@ -212,11 +205,12 @@ namespace Fusion5vs5Gamemode.Utilities
                 return;
             }
 
-            if (_RootMenusAsPageItems.TryGetValue(menu, out PageItem pageItem))
+            if (RootMenus.Contains(menu))
             {
-                _RootMenusAsPageItems.Remove(menu);
                 RootMenus.Remove(menu);
-                if (InRootLevel)
+                _RootMenusAsPageItems.TryGetValue(menu, out PageItem pageItem);
+                _RootMenusAsPageItems.Remove(menu);
+                if (InRootLevel && pageItem != null)
                 {
                     List<PageItem> toRemove = new List<PageItem>();
                     foreach (PageItem item in _HomePage.items)
@@ -382,6 +376,11 @@ namespace Fusion5vs5Gamemode.Utilities
 
         public static void ReturnToRootLevel()
         {
+            if (_HomePage == null)
+            {
+                return;
+            }
+            
             InRootLevel = true;
             _HomePage.items.Clear();
 

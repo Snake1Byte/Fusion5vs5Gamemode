@@ -37,8 +37,8 @@ namespace Fusion5vs5Gamemode.Server
         private Dictionary<PlayerId, SpawnPointRepresentation> _SpawnPoints =
             new Dictionary<PlayerId, SpawnPointRepresentation>();
 
-        private List<SpawnPointRepresentation> _CounterTerroristSpawnPoints;
-        private List<SpawnPointRepresentation> _TerroristSpawnPoints;
+        private readonly List<SpawnPointRepresentation> _CounterTerroristSpawnPoints;
+        private readonly List<SpawnPointRepresentation> _TerroristSpawnPoints;
 
         // For defusing game mode, this would be Counter Terrorist Team. For hostage, this would be Terrorist Team.
         public Team
@@ -49,10 +49,10 @@ namespace Fusion5vs5Gamemode.Server
         private Dictionary<GameStates, int> TimeLimits { get; }
         private GameStates _State = GameStates.Unknown;
         private Timer _BuyTimer;
-        private bool _BuyTimeOver;
+        private bool _IsBuyTime;
 
         private readonly Dictionary<PlayerId, PlayerStates> _PlayerStatesDict;
-        private List<PlayerId> _PlayersInBuyZone = new List<PlayerId>();
+        private readonly List<PlayerId> _PlayersInBuyZone = new List<PlayerId>();
 
         public Server(IServerOperations operations,
             Fusion5vs5GamemodeTeams defendingTeam,
@@ -200,6 +200,7 @@ namespace Fusion5vs5Gamemode.Server
                     return;
                 _SpawnPoints.Remove(player);
                 team.Players.Remove(player);
+                _PlayersInBuyZone.Remove(player);
                 SetPlayerState(player, PlayerStates.Spectator);
                 DetermineTeamWon(player, team);
                 Operations.InvokeTrigger($"{Events.PlayerSpectates}.{player.LongId}");
@@ -598,6 +599,7 @@ namespace Fusion5vs5Gamemode.Server
 
         private void FreezeAllPlayers()
         {
+            Log();
             foreach (var team in _Teams)
             {
                 foreach (var player in team.Players)
@@ -616,6 +618,7 @@ namespace Fusion5vs5Gamemode.Server
 
         private void UnFreezeAllPlayers()
         {
+            Log();
             foreach (var team in _Teams)
             {
                 foreach (var player in team.Players)
@@ -635,27 +638,44 @@ namespace Fusion5vs5Gamemode.Server
         private void BuyItemRequested(PlayerId player, string barcode)
         {
             Log(player, barcode);
-            _PlayerStatesDict.TryGetValue(player, out var state);
-            if (!_PlayersInBuyZone.Contains(player) || _BuyTimeOver || state != PlayerStates.Alive)
+            MelonLogger.Msg("BuyItemRequested() called.");
+            _PlayerStatesDict.TryGetValue(player, out PlayerStates state);
+            if (!_PlayersInBuyZone.Contains(player) || !_IsBuyTime || state != PlayerStates.Alive)
             {
                 return;
             }
 
-            if (!PlayerRepManager.TryGetPlayerRep(player.SmallId, out var rep))
+            RigReferenceCollection rigReferences;
+            if (player.IsSelf)
             {
+                rigReferences = RigData.RigReferences;
+            }
+            else
+            {
+                PlayerRepManager.TryGetPlayerRep(player.SmallId, out var rep);
+                rigReferences = rep.RigReferences;
+            }
+
+            if (rigReferences == null)
+            {
+                player.TryGetDisplayName(out string name);
+                MelonLogger.Warning(
+                    $"Could not find RigReferenceCollection for player {name ?? $"with ID {player.LongId.ToString()}"}.");
                 return;
             }
 
-            RigManager rm = rep.RigReferences.RigManager;
+            RigManager rm = rigReferences.RigManager;
             Transform headTransform = rm.physicsRig.m_pelvis;
             SerializedTransform finalTransform = new SerializedTransform(headTransform.position + headTransform.forward,
                 headTransform.rotation);
             SpawnResponseMessagePatches.OnSpawnFinished += PlaceItemInInventory;
             PooleeUtilities.RequestSpawn(barcode, finalTransform);
+            MelonLogger.Msg("BuyItemRequested(): passed all checks.");
 
             void PlaceItemInInventory(byte owner, string spawnedBarcode, GameObject spawnedGo)
             {
                 Log(owner, spawnedBarcode, spawnedGo);
+                MelonLogger.Msg("PlaceItemInInventory(): called.");
                 if (barcode != spawnedBarcode)
                 {
                     return;
@@ -675,7 +695,7 @@ namespace Fusion5vs5Gamemode.Server
                     return;
                 }
 
-                foreach (var slot in rep.RigReferences.RigSlots)
+                foreach (var slot in rigReferences.RigSlots)
                 {
                     if (slot._slottedWeapon == null && (slot.slotType & weaponSlot.slotType) != 0)
                     {
@@ -683,6 +703,8 @@ namespace Fusion5vs5Gamemode.Server
                         return;
                     }
                 }
+
+                MelonLogger.Msg("PlaceItemInInventory(): passed all checks.");
             }
         }
 
@@ -720,11 +742,12 @@ namespace Fusion5vs5Gamemode.Server
 
             _BuyTimer = new Timer();
             _BuyTimer.AutoReset = false;
-            _BuyTimer.Elapsed += (sender, args) => _BuyTimeOver = true;
+            _BuyTimer.Elapsed += (sender, args) => BuyTimeOver();
             NextState();
         }
 
         // When calling NextState() from anywhere but the timer's Elapsed event, call this as the last thing, after changing scores, round numbers, etc.
+
         private void NextState()
         {
             Log();
@@ -796,13 +819,12 @@ namespace Fusion5vs5Gamemode.Server
                 case GameStates.Unknown:
                     break;
                 case GameStates.Warmup:
+                    BuyTimeStart();
                     break;
                 case GameStates.BuyPhase:
                     IncrementRoundNumber();
 
-                    _BuyTimeOver = false;
-                    _BuyTimer.Interval = 40 * 1000;
-                    _BuyTimer.Start();
+                    BuyTimeStart(40);
 
                     foreach (var team in _Teams)
                     {
@@ -875,8 +897,7 @@ namespace Fusion5vs5Gamemode.Server
                     IncrementTeamScore(DefendingTeam);
                     Operations.InvokeTrigger($"{Events.TeamWonRound}.{DefendingTeam.TeamName}");
 
-                    _BuyTimeOver = true;
-                    _BuyTimer.Stop();
+                    BuyTimeOver();
                     break;
                 case GameStates.RoundEndPhase:
                     break;
@@ -935,6 +956,38 @@ namespace Fusion5vs5Gamemode.Server
             return roundNumber == MaxRounds;
         }
 
+        private void BuyTimeStart()
+        {
+            Log();
+            if (!_IsBuyTime)
+            {
+                _IsBuyTime = true;
+                Operations.InvokeTrigger(Events.BuyTimeStart);
+            }
+        }
+
+        private void BuyTimeStart(int seconds)
+        {
+            Log(seconds);
+            _BuyTimer.Interval = seconds * 1000;
+            _BuyTimer.Start();
+
+            BuyTimeStart();
+        }
+
+        private void BuyTimeOver()
+        {
+            Log();
+            if (_BuyTimer.Enabled)
+                _BuyTimer.Stop();
+
+            if (_IsBuyTime)
+            {
+                _IsBuyTime = false;
+                Operations.InvokeTrigger(Events.BuyTimeOver);
+            }
+        }
+
         public void Dispose()
         {
             Log();
@@ -962,6 +1015,19 @@ namespace Fusion5vs5Gamemode.Server
                     catch
                     {
                         MelonLogger.Warning("Could not dispose game timer.");
+                    }
+                }
+
+                if (_BuyTimer != null)
+                {
+                    _BuyTimer.Stop();
+                    try
+                    {
+                        _BuyTimer.Dispose();
+                    }
+                    catch
+                    {
+                        MelonLogger.Warning("Could not dispose buy timer.");
                     }
                 }
             }
