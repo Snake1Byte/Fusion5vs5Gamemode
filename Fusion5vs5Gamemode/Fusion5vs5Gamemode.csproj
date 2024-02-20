@@ -32,9 +32,9 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <PropertyGroup>
-    <PostBuildEvent>python "D:\Windows User\Documents\Python\a\Copy Files.py" "C:\Users\Snek\source\repos\Fusion5vs5Gamemode\Fusion5vs5Gamemode\bin\Debug\Fusion5vs5Gamemode.dll" "C:\Program Files (x86)\Steam\steamapps\common\BONELAB\Mods"
+    <PostBuildEvent>python "D:\Windows User\Documents\Python\a\Install_Mod.py" "C:\Program Files (x86)\Steam\steamapps\common\BONELAB\Mods" "C:\Users\Snek\source\repos\Fusion5vs5Gamemode\Fusion5vs5Gamemode\bin\Release\Fusion5vs5Gamemode.dll" "C:\Users\Snek\source\repos\Fusion5vs5Gamemode\Fusion5vs5Gamemode\bin\Debug\Fusion5vs5Gamemode.dll"
 
-python "D:\Windows User\Documents\Python\a\Copy Files.py" "C:\Users\Snek\source\repos\Fusion5vs5Gamemode\Fusion5vs5Gamemode\SDK" "H:\UnityProjectlamo\Fusion Marrow Integration Testing\Assets\Fusion5vs5Gamemode Marrow Integration"</PostBuildEvent>
+python "D:\Windows User\Documents\Python\a\Copy_Files.py" "C:\Users\Snek\source\repos\Fusion5vs5Gamemode\Fusion5vs5Gamemode\SDK" "H:\UnityProjectlamo\Fusion Marrow Integration Testing\Assets\Fusion5vs5Gamemode Marrow Integration"</PostBuildEvent>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="0Harmony">
@@ -131,7 +131,6 @@ python "D:\Windows User\Documents\Python\a\Copy Files.py" "C:\Users\Snek\source\
     <Compile Include="Shared\Fusion5vs5ClientRequest.cs" />
     <Compile Include="Shared\Fusion5vs5CustomModule.cs" />
     <Compile Include="Shared\GameStates.cs" />
-    <Compile Include="Shared\SpawnPointRepresentation.cs" />
     <Compile Include="Utilities\Extensions\IntElementExtensions.cs" />
     <Compile Include="Utilities\HarmonyPatches\GunPatches.cs" />
     <Compile Include="Utilities\HarmonyPatches\ImpactPropertiesPatches.cs" />

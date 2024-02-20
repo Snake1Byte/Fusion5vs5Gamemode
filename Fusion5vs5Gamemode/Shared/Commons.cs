@@ -10,6 +10,7 @@ using LabFusion.Data;
 using LabFusion.Representation;
 using LabFusion.SDK.Gamemodes;
 using MelonLoader;
+using SLZ.Props.Weapons;
 
 namespace Fusion5vs5Gamemode.Shared
 {
@@ -61,6 +62,13 @@ namespace Fusion5vs5Gamemode.Shared
             public const string BuyZoneExited = "BuyZoneExited";
         }
 
+        static Commons()
+        {
+#if DEBUG
+            builder.Append("==================================================================\n");
+#endif
+        }
+
         public const string SpectatorAvatar = CommonBarcodes.Avatars.PolyBlank;
 
         public static string GetTeamMemberKey(PlayerId id)
@@ -102,7 +110,6 @@ namespace Fusion5vs5Gamemode.Shared
         public static PlayerId GetPlayerFromValue(string player)
         {
             Log(player);
-            Log(player);
             ulong _playerId = ulong.Parse(player);
             foreach (var playerId in PlayerIdManager.PlayerIds)
             {
@@ -136,15 +143,12 @@ namespace Fusion5vs5Gamemode.Shared
             return int.Parse(roundNumber);
         }
 
-        public static StringBuilder builder = new StringBuilder();
-
-
-        static Commons()
+        public static void RotateGunPerpendicular(Gun gun, SerializedTransform forwardTransform)
         {
-#if DEBUG
-            builder.Append("==================================================================\n");
-#endif
+            
         }
+        
+        public static StringBuilder builder = new StringBuilder();
 
         public static void Log(params object[] parameters)
         {

@@ -71,7 +71,7 @@ namespace Fusion5vs5Gamemode.Client
         private string _TerroristTeamName;
 
         private Fusion5vs5GamemodeTeams? _LocalTeam;
-        private SpawnPointRepresentation _LocalSpawnPoint;
+        private SerializedTransform _LocalSpawnPoint;
         private float _LocalPlayerVelocity;
         private string _LastLocalAvatar;
         private bool _LocalPlayerFrozen;
@@ -259,21 +259,21 @@ namespace Fusion5vs5Gamemode.Client
 
             _DefendingTeam = _Descriptor.DefendingTeam;
 
-            List<SpawnPointRepresentation> counterTerroristSpawnPoints = new List<SpawnPointRepresentation>();
-            List<SpawnPointRepresentation> terroristSpawnPoints = new List<SpawnPointRepresentation>();
+            List<SerializedTransform> counterTerroristSpawnPoints = new List<SerializedTransform>();
+            List<SerializedTransform> terroristSpawnPoints = new List<SerializedTransform>();
             foreach (var spawnPoint in _Descriptor.CounterTerroristSpawnPoints)
             {
-                SpawnPointRepresentation t = new SpawnPointRepresentation();
-                t.position = spawnPoint.position;
-                t.eulerAngles = spawnPoint.eulerAngles;
+                SerializedTransform t = new SerializedTransform();
+                t.position = spawnPoint.position.ToSystemVector3();
+                t.rotation = spawnPoint.rotation.ToSystemQuaternion();
                 counterTerroristSpawnPoints.Add(t);
             }
 
             foreach (var spawnPoint in _Descriptor.TerroristSpawnPoints)
             {
-                SpawnPointRepresentation t = new SpawnPointRepresentation();
-                t.position = spawnPoint.position;
-                t.eulerAngles = spawnPoint.eulerAngles;
+                SerializedTransform t = new SerializedTransform();
+                t.position = spawnPoint.position.ToSystemVector3();
+                t.rotation = spawnPoint.rotation.ToSystemQuaternion();
                 terroristSpawnPoints.Add(t);
             }
 
@@ -601,11 +601,12 @@ namespace Fusion5vs5Gamemode.Client
                     string[] split = _transform.Split(',');
                     Vector3 pos = new Vector3(float.Parse(split[0]), float.Parse(split[1]), float.Parse(split[2]));
                     Vector3 rot = new Vector3(float.Parse(split[3]), float.Parse(split[4]), float.Parse(split[5]));
-                    SpawnPointRepresentation spawnPoint = new SpawnPointRepresentation();
-                    spawnPoint.position = pos;
-                    spawnPoint.eulerAngles = rot;
-                    _LocalSpawnPoint = new SpawnPointRepresentation
-                        { position = spawnPoint.position, eulerAngles = spawnPoint.eulerAngles };
+                    SerializedTransform spawnPoint = new SerializedTransform
+                    {
+                        position = pos.ToSystemVector3(),
+                        rotation = Quaternion.Euler(rot).ToSystemQuaternion()
+                    };
+                    _LocalSpawnPoint = spawnPoint;
 
                     SetFusionSpawnPoint(pos, rot);
                 }
@@ -967,7 +968,7 @@ namespace Fusion5vs5Gamemode.Client
         private void Respawn()
         {
             Log();
-            FusionPlayer.Teleport(_LocalSpawnPoint.position, _LocalSpawnPoint.eulerAngles);
+            FusionPlayer.Teleport(_LocalSpawnPoint.position.ToUnityVector3(), _LocalSpawnPoint.rotation.ToUnityQuaternion().eulerAngles);
         }
 
         /// <summary>

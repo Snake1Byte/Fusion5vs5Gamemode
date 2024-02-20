@@ -42,7 +42,7 @@ namespace Fusion5vs5Gamemode.Shared
                     {
                         var info = data.value;
                         if (Client.Fusion5vs5Gamemode.Instance.Tag.HasValue &&
-                            GamemodeManager.TryGetGamemode(Client.Fusion5vs5Gamemode.Instance.Tag.Value, out var gamemode))
+                            GamemodeManager.TryGetGamemode(Client.Fusion5vs5Gamemode.Instance.Tag.Value, out _))
                         {
                             Client.Fusion5vs5Gamemode.Instance.Server.OnClientRequested(info);
                         }

@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Timers;
 using Fusion5vs5Gamemode.SDK;
 using Fusion5vs5Gamemode.Shared;
 using Fusion5vs5Gamemode.Utilities;
 using Fusion5vs5Gamemode.Utilities.HarmonyPatches;
 using LabFusion.Data;
+using LabFusion.Extensions;
 using LabFusion.Network;
 using LabFusion.Representation;
 using LabFusion.SDK.Gamemodes;
@@ -15,6 +17,7 @@ using MelonLoader;
 using SLZ.Interaction;
 using SLZ.Props.Weapons;
 using SLZ.Rig;
+using SLZ.SFX;
 using UnityEngine;
 using static Fusion5vs5Gamemode.Shared.Commons;
 
@@ -34,11 +37,11 @@ namespace Fusion5vs5Gamemode.Server
         private Team TerroristTeam { get; }
         private readonly Team[] _Teams;
 
-        private Dictionary<PlayerId, SpawnPointRepresentation> _SpawnPoints =
-            new Dictionary<PlayerId, SpawnPointRepresentation>();
+        private Dictionary<PlayerId, SerializedTransform> _SpawnPoints =
+            new Dictionary<PlayerId, SerializedTransform>();
 
-        private readonly List<SpawnPointRepresentation> _CounterTerroristSpawnPoints;
-        private readonly List<SpawnPointRepresentation> _TerroristSpawnPoints;
+        private readonly List<SerializedTransform> _CounterTerroristSpawnPoints;
+        private readonly List<SerializedTransform> _TerroristSpawnPoints;
 
         // For defusing game mode, this would be Counter Terrorist Team. For hostage, this would be Terrorist Team.
         public Team
@@ -56,8 +59,8 @@ namespace Fusion5vs5Gamemode.Server
 
         public Server(IServerOperations operations,
             Fusion5vs5GamemodeTeams defendingTeam,
-            List<SpawnPointRepresentation> counterTerroristSpawnPoints,
-            List<SpawnPointRepresentation> terroristSpawnPoints,
+            List<SerializedTransform> counterTerroristSpawnPoints,
+            List<SerializedTransform> terroristSpawnPoints,
             int maxRounds,
             bool enableHalfTime,
             bool enableLateJoining,
@@ -221,6 +224,7 @@ namespace Fusion5vs5Gamemode.Server
             {
                 string[] info = request.Split('.');
                 PlayerId player = GetPlayerFromValue(info[1]);
+                string barcode = string.Join(".", info.Skip(2));
                 BuyItemRequested(player, info[2]);
             }
         }
@@ -261,7 +265,7 @@ namespace Fusion5vs5Gamemode.Server
                 var spawnPoints = selectedTeam.Equals(CounterTerroristTeam)
                     ? _CounterTerroristSpawnPoints
                     : _TerroristSpawnPoints;
-                SpawnPointRepresentation? newSpawnPoint = AssignSpawnPoint(player, spawnPoints);
+                SerializedTransform? newSpawnPoint = AssignSpawnPoint(player, spawnPoints);
                 if (newSpawnPoint == null)
                 {
 #if DEBUG
@@ -334,18 +338,18 @@ namespace Fusion5vs5Gamemode.Server
             }
         }
 
-        private SpawnPointRepresentation? AssignSpawnPoint(PlayerId player, List<SpawnPointRepresentation> spawnPoints)
+        private SerializedTransform? AssignSpawnPoint(PlayerId player, List<SerializedTransform> spawnPoints)
         {
             Log(player, spawnPoints);
-            foreach (SpawnPointRepresentation spawnPoint in spawnPoints)
+            foreach (SerializedTransform spawnPoint in spawnPoints)
             {
                 if (!_SpawnPoints.TryGetValue(player, out var transform) || !spawnPoints.Contains(transform))
                 {
                     // Found a free spawn point for the player to assign to
                     _SpawnPoints.Remove(player);
                     _SpawnPoints.Add(player, spawnPoint);
-                    var pos = spawnPoint.position;
-                    var rot = spawnPoint.eulerAngles;
+                    Vector3 pos = spawnPoint.position.ToUnityVector3();
+                    Vector3 rot = spawnPoint.rotation.ToUnityQuaternion().eulerAngles;
                     Operations.InvokeTrigger(
                         $"{Events.SpawnPointAssigned}.{player.LongId}.{pos.x},{pos.y},{pos.z},{rot.x},{rot.y},{rot.z}");
                     return spawnPoint;
@@ -445,7 +449,7 @@ namespace Fusion5vs5Gamemode.Server
             _SpawnPoints.Clear();
             foreach (var team in _Teams)
             {
-                List<SpawnPointRepresentation> spawnPoints = team.Equals(CounterTerroristTeam)
+                List<SerializedTransform> spawnPoints = team.Equals(CounterTerroristTeam)
                     ? _CounterTerroristSpawnPoints
                     : _TerroristSpawnPoints;
                 foreach (var player in team.Players)
