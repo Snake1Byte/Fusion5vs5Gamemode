@@ -1,13 +1,12 @@
-﻿namespace Fusion5vs5Gamemode.Shared
+﻿namespace Fusion5vs5Gamemode.Shared;
+
+public enum GameStates
 {
-    public enum GameStates
-    {
-        Unknown,
-        Warmup,
-        BuyPhase,
-        PlayPhase,
-        RoundEndPhase,
-        MatchHalfPhase,
-        MatchEndPhase 
-    }
+    Unknown,
+    Warmup,
+    BuyPhase,
+    PlayPhase,
+    RoundEndPhase,
+    MatchHalfPhase,
+    MatchEndPhase 
 }

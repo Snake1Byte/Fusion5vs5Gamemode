@@ -1,5 +1,4 @@
 ﻿using System;
-using BoneLib;
 using HarmonyLib;
 using MelonLoader;
 using SLZ.AI;
@@ -7,39 +6,39 @@ using SLZ.Combat;
 using SLZ.Marrow.Data;
 using UnityEngine;
 
-namespace Fusion5vs5Gamemode.Utilities.HarmonyPatches
+namespace Fusion5vs5Gamemode.Utilities.HarmonyPatches;
+
+[HarmonyPatch(typeof(Projectile))]
+public static class ProjectilePatches
 {
-    [HarmonyPatch(typeof(Projectile))]
-    public static class ProjectilePatches
-    {
-        public static Action<Projectile, ProjectileData, Transform, TriggerRefProxy> OnSetBulletObject;
+    public static Action<Projectile, ProjectileData, Transform, TriggerRefProxy>? OnSetBulletObject;
 #if DEBUG
-        private static int Counter = 0;
+    private static int _Counter = 0;
 #endif
 
-        [HarmonyPrefix]
-        [HarmonyPatch(nameof(Projectile.SetBulletObject))]
-        public static void SetBulletObject(Projectile __instance, ProjectileData data, Transform startTransform,
-            Vector3 locPos,
-            Quaternion locRot, Rigidbody EmittingRigidbody, TriggerRefProxy proxy)
+    [HarmonyPrefix]
+    [HarmonyPatch(nameof(Projectile.SetBulletObject))]
+    public static void SetBulletObject(Projectile __instance, ProjectileData data, Transform startTransform,
+        Vector3 locPos,
+        Quaternion locRot, Rigidbody EmittingRigidbody, TriggerRefProxy proxy)
+    {
+        try
         {
-            try
-            {
 #if DEBUG
-                Counter++;
-                MelonLogger.Msg(
-                    $"{Counter}: Called Projectile.SetBulletObject(instance = {__instance.GetInstanceID()}, data = {data.GetInstanceID()} {data}, startTransform = {startTransform.GetInstanceID()} {startTransform.position} {startTransform.rotation} {startTransform}, locPos = {locPos}, locRot = {locRot}, EmittingRigidbody = {EmittingRigidbody}, proxy = {proxy.GetInstanceID()} {proxy})");
+            _Counter++;
+            MelonLogger.Msg(
+                $"{_Counter}: Called Projectile.SetBulletObject(instance = {__instance.GetInstanceID()}, data = {data.GetInstanceID()} {data}, startTransform = {startTransform.GetInstanceID()} {startTransform.position} {startTransform.rotation} {startTransform}, locPos = {locPos}, locRot = {locRot}, EmittingRigidbody = {EmittingRigidbody}, proxy = {proxy.GetInstanceID()} {proxy})");
 #endif
-                SafeActions.InvokeActionSafe(OnSetBulletObject, __instance, data, startTransform, proxy);
-            }
-            catch (Exception e)
-            {
-#if DEBUG
-                MelonLogger.Msg(
-                    $"Exception {e} fired in Projectile.SetBulletObject() HarmonyPatch.");
-#endif
-            }
+            SafeActions.InvokeActionSafe(OnSetBulletObject, __instance, data, startTransform, proxy);
         }
+        catch (Exception e)
+        {
+#if DEBUG
+            MelonLogger.Msg(
+                $"Exception {e} fired in Projectile.SetBulletObject() HarmonyPatch.");
+#endif
+        }
+    }
 /*
 
         [HarmonyPrefix]
@@ -105,5 +104,4 @@ namespace Fusion5vs5Gamemode.Utilities.HarmonyPatches
         //     }
         // }
         */
-    }
 }

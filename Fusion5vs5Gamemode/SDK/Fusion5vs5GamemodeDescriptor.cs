@@ -3,14 +3,9 @@ using System.Collections.Generic;
 using Fusion5vs5Gamemode.SDK.Internal;
 using UnityEngine;
 using SLZ.Marrow.Warehouse;
-using UnityEditor;
 
 #if MELONLOADER
-using MelonLoader;
-using LabFusion.SDK.Gamemodes;
-using UnhollowerBaseLib.Attributes;
 using LabFusion.Utilities;
-using SLZ.VRMK;
 #endif
 
 namespace Fusion5vs5Gamemode.SDK
@@ -49,8 +44,8 @@ namespace Fusion5vs5Gamemode.SDK
         {
         }
 
-        public static readonly FusionComponentCache<GameObject, Fusion5vs5GamemodeDescriptor> Cache =
-            new FusionComponentCache<GameObject, Fusion5vs5GamemodeDescriptor>();
+        public static readonly FusionComponentCache<GameObject, Fusion5vs5GamemodeDescriptor?> Cache =
+            new FusionComponentCache<GameObject, Fusion5vs5GamemodeDescriptor?>();
 
         private void Awake()
         {
