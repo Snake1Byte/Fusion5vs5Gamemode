@@ -38,13 +38,13 @@ public class Fusion5vs5ClientRequestHandler : ModuleMessageHandler
         {
             using (var data = reader.ReadFusionSerializable<Fusion5vs5ClientRequest>())
             {
-                if (NetworkInfo.IsServer && Client.Fusion5vs5Gamemode.Instance != null)
+                if (NetworkInfo.IsServer && Client.Client.Instance != null)
                 {
                     var info = data.Value;
-                    if (Client.Fusion5vs5Gamemode.Instance.Tag.HasValue &&
-                        GamemodeManager.TryGetGamemode(Client.Fusion5vs5Gamemode.Instance.Tag.Value, out _))
+                    if (Client.Client.Instance.Tag.HasValue &&
+                        GamemodeManager.TryGetGamemode(Client.Client.Instance.Tag.Value, out _))
                     {
-                        Client.Fusion5vs5Gamemode.Instance.Server?.OnClientRequested(info);
+                        Client.Client.Instance.Server?.OnClientRequested(info);
                     }
                 }
             }

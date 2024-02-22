@@ -30,7 +30,7 @@ using Object = UnityEngine.Object;
 
 namespace Fusion5vs5Gamemode.Client;
 
-public class Fusion5vs5Gamemode : Gamemode
+public class Client : Gamemode
 {
     public override string GamemodeCategory => "Snake1Byte's Gamemodes";
 
@@ -65,7 +65,7 @@ public class Fusion5vs5Gamemode : Gamemode
     private int _ElapsedTime;
 
     // Internal
-    public static Fusion5vs5Gamemode? Instance { get; private set; }
+    public static Client? Instance { get; private set; }
     private Fusion5vs5GamemodeDescriptor? _Descriptor;
     public Server.Server? Server { get; private set; }
     private Fusion5vs5GamemodeTeams? _DefendingTeam;
@@ -606,6 +606,7 @@ public class Fusion5vs5Gamemode : Gamemode
             if (player.IsSelf)
             {
                 _LocalTeam = null;
+                UnFreeze();
                 Kill();
                 Notify("Joined Spectators", "You can join a team from <UI component>"); // TODO 
             }
@@ -928,8 +929,8 @@ public class Fusion5vs5Gamemode : Gamemode
     private void Kill()
     {
         Log();
-        SpawnRagdoll();
         SetSpectator();
+        SpawnRagdoll();
     }
 
     /// <summary>
@@ -957,8 +958,11 @@ public class Fusion5vs5Gamemode : Gamemode
         FusionPlayerExtended.canSendDamage = true;
         FusionPlayer.ClearAvatarOverride();
         RigManager rm = RigData.RigReferences.RigManager;
-        rm.SwapAvatarCrate(_LastLocalAvatar, true, (Action<bool>)(_ => Freeze()));
-        Respawn();
+        rm.SwapAvatarCrate(_LastLocalAvatar, true, (Action<bool>)(_ =>
+        {
+            Freeze();
+            Respawn();
+        }));
     }
 
     /// <summary>
@@ -1106,6 +1110,7 @@ public class Fusion5vs5Gamemode : Gamemode
 
     private bool IsInsideBuyZone()
     {
+        Log();
         if (!_LocalTeam.HasValue)
         {
             return false;
