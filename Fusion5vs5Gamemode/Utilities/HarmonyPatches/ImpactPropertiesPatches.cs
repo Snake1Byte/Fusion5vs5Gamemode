@@ -5,6 +5,7 @@ using LabFusion.Patching;
 using MelonLoader;
 using SLZ.AI;
 using SLZ.Combat;
+
 // ReSharper disable Unity.IncorrectMonoBehaviourInstantiation
 
 namespace Fusion5vs5Gamemode.Utilities.HarmonyPatches;
@@ -14,7 +15,7 @@ public static class ImpactPropertiesPatches
 {
     public static Action<ImpactProperties, Attack_>? OnAttackReceived;
 #if DEBUG
-    private static int _Counter = 0;
+    private static int _Counter;
 #endif
 
     public static void Patch()
@@ -40,23 +41,21 @@ public static class ImpactPropertiesPatches
     {
         try
         {
-            ImpactProperties receiver;
-            Attack_ _attack = new Attack_();
-            TriggerRefProxy proxy;
-            receiver = new ImpactProperties(instance);
+            Attack_ attackStruct;
+            ImpactProperties receiver = new ImpactProperties(instance);
             unsafe
             {
-                _attack = *(Attack_*)attack;
+                attackStruct = *(Attack_*)attack;
             }
 
-            proxy = new TriggerRefProxy(_attack.proxy);
+            TriggerRefProxy proxy = new TriggerRefProxy(attackStruct.proxy);
 #if DEBUG
             _Counter++;
             MelonLogger.Msg(
-                $"{_Counter}: Called ImpactProperties.ReceiveAttack(attack: damage = {_attack.damage}, direction = {_attack.direction}, normal = {_attack.normal}, origin = {_attack.origin}, proxy = {proxy.GetInstanceID()} {proxy})");
+                $"{_Counter}: Called ImpactProperties.ReceiveAttack(attack: damage = {attackStruct.damage}, direction = {attackStruct.direction}, normal = {attackStruct.normal}, origin = {attackStruct.origin}, proxy = {proxy.GetInstanceID()} {proxy})");
 #endif
-            BoneLib.SafeActions.InvokeActionSafe(OnAttackReceived, receiver, _attack);
-            _Original(instance, attack, method);
+            BoneLib.SafeActions.InvokeActionSafe(OnAttackReceived, receiver, attackStruct);
+            _Original?.Invoke(instance, attack, method);
         }
         catch (Exception e)
         {

@@ -13,7 +13,7 @@ namespace Fusion5vs5Gamemode.SDK.Internal {
         public Fusion5vs5GamemodeBehaviour(IntPtr intPtr) : base(intPtr) { }
 
         private Transform _transform;
-        private bool _hasTransform = false;
+        private bool _hasTransform;
         public Transform Transform {
             get {
                 if (!_hasTransform) {

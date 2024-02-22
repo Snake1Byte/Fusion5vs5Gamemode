@@ -19,6 +19,7 @@ using SLZ.Props.Weapons;
 using SLZ.Rig;
 using UnityEngine;
 using static Fusion5vs5Gamemode.Shared.Commons;
+// ReSharper disable All
 
 namespace Fusion5vs5Gamemode.Server;
 

@@ -407,12 +407,10 @@ public class RadialMenu
                     {
                         return true;
                     }
-                    else
+
+                    if (IsSubMenuInsideChildren(menu, descendant))
                     {
-                        if (IsSubMenuInsideChildren(menu, descendant))
-                        {
-                            return true;
-                        }
+                        return true;
                     }
                 }
             }

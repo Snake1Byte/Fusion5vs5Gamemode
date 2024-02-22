@@ -36,7 +36,6 @@ public static class ProjectileRicochet
             {
                 ProjectileTrace.OnProjectileImpactedSurface -= OnProjectileImpactedSurface;
                 _Enabled = false;
-
             }
         }
     }
@@ -69,7 +68,7 @@ public static class ProjectileRicochet
                     {
                         Vector3 reflectDirection = Vector3.Reflect(attack.direction, attack.normal);
                         go.transform.SetPositionAndRotation(attack.origin, Quaternion.LookRotation(reflectDirection));
-                            
+
                         Projectile ricochetProjectile = go.GetComponent<Projectile>();
                         ricochetProjectile.SetBulletObject(projectile._data, go.transform, Vector3.zero,
                             Quaternion.identity,

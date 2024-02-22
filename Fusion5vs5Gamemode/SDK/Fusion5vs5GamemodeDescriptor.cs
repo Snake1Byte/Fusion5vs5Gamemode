@@ -1,9 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using Fusion5vs5Gamemode.SDK.Internal;
-using UnityEngine;
 using SLZ.Marrow.Warehouse;
-
+using UnityEngine;
 #if MELONLOADER
 using LabFusion.Utilities;
 #endif
@@ -64,7 +63,7 @@ namespace Fusion5vs5Gamemode.SDK
             public static readonly string TerroristTeamName = "Lava Gang";
 
             public static readonly AvatarCrate DefaultAvatar =
-                AssetWarehouse.Instance.GetCrate<AvatarCrate>(BoneLib.CommonBarcodes.Avatars.FordBL);
+                AssetWarehouse.Instance.GetCrate<AvatarCrate>( "SLZ.BONELAB.Content.Avatar.CharFord");
         }
 #else
         public void OnBuyZoneExited() { }

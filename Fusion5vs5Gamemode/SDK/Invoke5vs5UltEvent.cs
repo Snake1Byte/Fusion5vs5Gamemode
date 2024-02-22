@@ -2,7 +2,6 @@
 using Fusion5vs5Gamemode.SDK.Internal;
 using UltEvents;
 using UnityEngine;
-
 #if MELONLOADER
 using LabFusion.Utilities;
 using MelonLoader;

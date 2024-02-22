@@ -13,7 +13,7 @@ public static class ProjectilePatches
 {
     public static Action<Projectile, ProjectileData, Transform, TriggerRefProxy>? OnSetBulletObject;
 #if DEBUG
-    private static int _Counter = 0;
+    private static int _Counter;
 #endif
 
     [HarmonyPrefix]

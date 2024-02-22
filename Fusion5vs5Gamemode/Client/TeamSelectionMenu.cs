@@ -7,52 +7,50 @@ namespace Fusion5vs5Gamemode.Client;
 public static class TeamSelectionMenu
 {
     // Root Menu
-    private static RadialSubMenu _TeamsMenu;
+    private static readonly RadialSubMenu TeamsMenu;
 
     // Weapon Category
-    private static readonly RadialMenuItem _Attackers;
-    private static readonly RadialMenuItem _Defenders;
-    private static readonly RadialMenuItem _Spectators;
 
     public static Action? OnAttackersSelected;
     public static Action? OnDefendersSelected;
     public static Action? OnSpectatorsSelected;
 
+
     static TeamSelectionMenu()
     {
-            _TeamsMenu = new RadialSubMenu("Teams", PageItem.Directions.NORTH);
-            _Attackers = new RadialMenuItem("Attackers", PageItem.Directions.EAST,
-                Internal_OnAttackersSelected);
-            _Defenders = new RadialMenuItem("Defenders", PageItem.Directions.WEST,
-                Internal_OnDefendersSelected);
-            _Spectators = new RadialMenuItem("Spectators", PageItem.Directions.NORTH,
-                Internal_SpectatorsSelected);
-            _TeamsMenu.Add(_Attackers);
-            _TeamsMenu.Add(_Defenders);
-            _TeamsMenu.Add(_Spectators);
-        }
+        TeamsMenu = new RadialSubMenu("Teams", PageItem.Directions.NORTH);
+        RadialMenuItem attackers = new RadialMenuItem("Attackers", PageItem.Directions.EAST,
+            AttackersSelected);
+        RadialMenuItem defenders = new RadialMenuItem("Defenders", PageItem.Directions.WEST,
+            DefendersSelected);
+        RadialMenuItem spectators = new RadialMenuItem("Spectators", PageItem.Directions.NORTH,
+            SpectatorsSelected);
+        TeamsMenu.Add(attackers);
+        TeamsMenu.Add(defenders);
+        TeamsMenu.Add(spectators);
+    }
 
     public static void AddTeamsMenu()
     {
-            AddRootMenu(_TeamsMenu);
-        }
+        AddRootMenu(TeamsMenu);
+    }
 
     public static void RemoveTeamsMenu()
     {
-            RemoveRootMenu(_TeamsMenu);
-        }
+        RemoveRootMenu(TeamsMenu);
+    }
 
-    internal static void Internal_OnAttackersSelected()
+    private static void AttackersSelected()
     {
         OnAttackersSelected?.Invoke();
     }
 
-    internal static void Internal_OnDefendersSelected()
+    private static void DefendersSelected()
     {
         OnDefendersSelected?.Invoke();
     }
 
-    internal static void Internal_SpectatorsSelected()
+    private static void SpectatorsSelected()
     {
         OnSpectatorsSelected?.Invoke();
     }

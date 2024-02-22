@@ -44,7 +44,7 @@ public class Fusion5vs5ClientRequestHandler : ModuleMessageHandler
                     if (Client.Fusion5vs5Gamemode.Instance.Tag.HasValue &&
                         GamemodeManager.TryGetGamemode(Client.Fusion5vs5Gamemode.Instance.Tag.Value, out _))
                     {
-                        Client.Fusion5vs5Gamemode.Instance.Server.OnClientRequested(info);
+                        Client.Fusion5vs5Gamemode.Instance.Server?.OnClientRequested(info);
                     }
                 }
             }

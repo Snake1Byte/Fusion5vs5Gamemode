@@ -11,6 +11,7 @@ using LabFusion.Representation;
 using LabFusion.SDK.Gamemodes;
 using MelonLoader;
 using SLZ.Props.Weapons;
+
 // ReSharper disable InconsistentNaming
 
 namespace Fusion5vs5Gamemode.Shared;
@@ -93,19 +94,19 @@ public static class Commons
     public static string GetPlayerKillsKey(PlayerId killer)
     {
         Log(killer);
-        return $"{Metadata.PlayerKillsKey}.{killer?.LongId}";
+        return $"{Metadata.PlayerKillsKey}.{killer.LongId}";
     }
 
     public static string GetPlayerAssistsKey(PlayerId assister)
     {
         Log(assister);
-        return $"{Metadata.PlayerAssistsKey}.{assister?.LongId}";
+        return $"{Metadata.PlayerAssistsKey}.{assister.LongId}";
     }
 
     public static string GetPlayerDeathsKey(PlayerId killed)
     {
         Log(killed);
-        return $"{Metadata.PlayerDeathsKey}.{killed?.LongId}";
+        return $"{Metadata.PlayerDeathsKey}.{killed.LongId}";
     }
 
     public static PlayerId? GetPlayerFromValue(string player)

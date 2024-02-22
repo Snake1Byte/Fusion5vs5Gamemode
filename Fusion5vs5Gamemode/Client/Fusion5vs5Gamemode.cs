@@ -1006,7 +1006,7 @@ public class Fusion5vs5Gamemode : Gamemode
         RigManager rm = RigData.RigReferences.RigManager;
         Transform transform = rm.physicsRig.m_pelvis;
         SpawnManager.SpawnRagdoll(_LastLocalAvatar, transform.position, transform.rotation,
-            (rigManager) =>
+            rigManager =>
             {
                 Timer despawnTimer = new Timer();
                 despawnTimer.Interval = 5000;
@@ -1115,7 +1115,8 @@ public class Fusion5vs5Gamemode : Gamemode
         {
             return true;
         }
-        else if (_LocalTeam.Value == Fusion5vs5GamemodeTeams.CounterTerrorists && _InsideCTBuyZone)
+
+        if (_LocalTeam.Value == Fusion5vs5GamemodeTeams.CounterTerrorists && _InsideCTBuyZone)
         {
             return true;
         }
@@ -1215,7 +1216,7 @@ public class Fusion5vs5Gamemode : Gamemode
     private void Notify(string header, string body, float popupLength = 2f)
     {
         Log(header, body, popupLength);
-        FusionNotification notif = new FusionNotification()
+        FusionNotification notif = new FusionNotification
         {
             title = header,
             showTitleOnPopup = true,
