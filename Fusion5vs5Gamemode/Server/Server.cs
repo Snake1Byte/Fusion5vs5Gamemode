@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Timers;
+using Fusion5vs5Gamemode.Client;
 using Fusion5vs5Gamemode.SDK;
 using Fusion5vs5Gamemode.Shared;
 using Fusion5vs5Gamemode.Utilities;
@@ -19,6 +20,7 @@ using SLZ.Props.Weapons;
 using SLZ.Rig;
 using UnityEngine;
 using static Fusion5vs5Gamemode.Shared.Commons;
+
 // ReSharper disable All
 
 namespace Fusion5vs5Gamemode.Server;
@@ -41,6 +43,8 @@ public class Server : IDisposable
 
     private readonly List<SerializedTransform> _CounterTerroristSpawnPoints;
     private readonly List<SerializedTransform> _TerroristSpawnPoints;
+
+    private bool _TeamScoreIncremented = false;
 
     // For defusing game mode, this would be Counter Terrorist Team. For hostage, this would be Terrorist Team.
     public Team
@@ -207,14 +211,7 @@ public class Server : IDisposable
             string[] info = request.Split('.');
             PlayerId? player = GetPlayerFromValue(info[1]);
             if (player == null) return;
-            Team? team = GetTeam(player);
-            if (team == null) return;
-            _SpawnPoints.Remove(player);
-            team.Players.Remove(player);
-            _PlayersInBuyZone.Remove(player);
-            SetPlayerState(player, PlayerStates.Spectator);
-            DetermineTeamWon(player, team);
-            Operations.InvokeTrigger($"{Events.PlayerSpectates}.{player.LongId}");
+            SpectatorJoinRequest(player);
         }
         else if (request.StartsWith(ClientRequest.BuyZoneEntered))
         {
@@ -253,6 +250,8 @@ public class Server : IDisposable
         Log(player, selectedTeam);
 
         player.TryGetDisplayName(out var playerName);
+        playerName = playerName ?? $"with ID {player.LongId}";
+
         if (_State is GameStates.MatchHalfPhase or GameStates.MatchEndPhase)
         {
 #if DEBUG
@@ -337,6 +336,28 @@ public class Server : IDisposable
             if (oldTeam != null) DetermineTeamWon(player, oldTeam);
         }
     }
+    
+    private void SpectatorJoinRequest(PlayerId player)
+    {
+        Team? team = GetTeam(player);
+        if (team == null) return;
+        if (_State is GameStates.MatchHalfPhase or GameStates.MatchEndPhase)
+        {
+#if DEBUG
+            player.TryGetDisplayName(out var playerName);
+            MelonLogger.Warning(
+                $"Player {playerName ?? $"with ID {player.LongId}"} tried to join spectators during MatchHalfPhase/MatchEndPhase, aborting.");
+#endif
+            return;
+        }
+
+        _SpawnPoints.Remove(player);
+        team.Players.Remove(player);
+        _PlayersInBuyZone.Remove(player);
+        SetPlayerState(player, PlayerStates.Spectator);
+        DetermineTeamWon(player, team);
+        Operations.InvokeTrigger($"{Events.PlayerSpectates}.{player.LongId}");
+    }
 
     private SerializedTransform? AssignSpawnPoint(PlayerId player, List<SerializedTransform> spawnPoints)
     {
@@ -385,7 +406,11 @@ public class Server : IDisposable
     private void IncrementTeamScore(Team team)
     {
         Log(team);
-        SetTeamScore(team, GetTeamScore(team) + 1);
+        if (!_TeamScoreIncremented)
+        {
+            _TeamScoreIncremented = true;
+            SetTeamScore(team, GetTeamScore(team) + 1);
+        }
     }
 
     private void SetTeamScore(Team team, int teamScore)
@@ -558,6 +583,10 @@ public class Server : IDisposable
         return playerState;
     }
 
+    /// <summary>
+    /// See <see cref="Fusion5vs5Gamemode.Client.Client.Revive"/>
+    /// </summary>
+    /// <param name="player"></param>
     private void RevivePlayer(PlayerId player)
     {
         Log(player);
@@ -815,6 +844,7 @@ public class Server : IDisposable
                 BuyTimeStart();
                 break;
             case GameStates.BuyPhase:
+                _TeamScoreIncremented = false;
                 IncrementRoundNumber();
 
                 BuyTimeStart(40);

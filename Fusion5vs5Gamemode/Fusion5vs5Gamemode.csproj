@@ -117,7 +117,7 @@ python "D:\Windows User\Documents\Python\a\Copy_Files.py" "C:\Users\Snek\source\
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Client\BuyMenu.cs" />
-    <Compile Include="Client\Fusion5vs5Gamemode.cs" />
+    <Compile Include="Client\Client.cs" />
     <Compile Include="Client\SDKIntegration.cs" />
     <Compile Include="Client\TeamRepresentation.cs" />
     <Compile Include="Client\TeamSelectionMenu.cs" />
