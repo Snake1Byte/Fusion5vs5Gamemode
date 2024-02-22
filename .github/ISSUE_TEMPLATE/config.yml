@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Feature Request
+    url: https://github.com/Snake1Byte/Fusion5vs5Gamemode/discussions/categories/3-feature-requests
+    about: I am happy to take feature requests over on the Discussions tab.
+  - name: Question
+    url: https://github.com/Snake1Byte/Fusion5vs5Gamemode/discussions/categories/4-q-a
+    about: For questions about anything at all, please visit the Discussions tab.
