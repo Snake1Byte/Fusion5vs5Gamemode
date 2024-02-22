@@ -1,11 +1,11 @@
 ﻿using Fusion5vs5Gamemode.SDK;
 
-namespace Fusion5vs5Gamemode.Client
+namespace Fusion5vs5Gamemode.Client;
+
+public class SDKIntegration
 {
-    public class SDKIntegration
+    public static void InvokeCounterTerroristTeamJoined(string playerName, bool wasLocalTeam)
     {
-        public static void InvokeCounterTerroristTeamJoined(string playerName, bool wasLocalTeam)
-        {
             foreach (var ultEvent in Invoke5vs5UltEvent.Cache.Components)
             {
                 if (ultEvent.Event == Invoke5vs5UltEvent.Fusion5vs5GamemodeUltEvents.CounterTerroristTeamJoined)
@@ -17,8 +17,8 @@ namespace Fusion5vs5Gamemode.Client
             }
         }
 
-        public static void InvokeTerroristTeamJoined(string playerName, bool wasLocalTeam)
-        {
+    public static void InvokeTerroristTeamJoined(string playerName, bool wasLocalTeam)
+    {
             foreach (var ultEvent in Invoke5vs5UltEvent.Cache.Components)
             {
                 if (ultEvent.Event == Invoke5vs5UltEvent.Fusion5vs5GamemodeUltEvents.TerroristTeamJoined)
@@ -30,8 +30,8 @@ namespace Fusion5vs5Gamemode.Client
             }
         }
 
-        public static void InvokeCounterTerroristTeamScored(int totalScore, bool wasLocalTeam)
-        {
+    public static void InvokeCounterTerroristTeamScored(int totalScore, bool wasLocalTeam)
+    {
             foreach (var ultEvent in Invoke5vs5UltEvent.Cache.Components)
             {
                 if (ultEvent.Event == Invoke5vs5UltEvent.Fusion5vs5GamemodeUltEvents.CounterTerroristTeamScored)
@@ -43,8 +43,8 @@ namespace Fusion5vs5Gamemode.Client
             }
         }
 
-        public static void InvokeTerroristTeamScored(int totalScore, bool wasLocalTeam)
-        {
+    public static void InvokeTerroristTeamScored(int totalScore, bool wasLocalTeam)
+    {
             foreach (var ultEvent in Invoke5vs5UltEvent.Cache.Components)
             {
                 if (ultEvent.Event == Invoke5vs5UltEvent.Fusion5vs5GamemodeUltEvents.TerroristTeamScored)
@@ -56,8 +56,8 @@ namespace Fusion5vs5Gamemode.Client
             }
         }
 
-        public static void InvokeNewRoundStarted(int roundNumber)
-        {
+    public static void InvokeNewRoundStarted(int roundNumber)
+    {
             foreach (var ultEvent in Invoke5vs5UltEvent.Cache.Components)
             {
                 if (ultEvent.Event == Invoke5vs5UltEvent.Fusion5vs5GamemodeUltEvents.NewRoundStarted)
@@ -68,8 +68,8 @@ namespace Fusion5vs5Gamemode.Client
             }
         }
 
-        public static void InvokePlayerKilledAnotherPlayer(string killerName, string killedName, bool wasLocalPlayer)
-        {
+    public static void InvokePlayerKilledAnotherPlayer(string killerName, string killedName, bool wasLocalPlayer)
+    {
             foreach (var ultEvent in Invoke5vs5UltEvent.Cache.Components)
             {
                 if (ultEvent.Event == Invoke5vs5UltEvent.Fusion5vs5GamemodeUltEvents.PlayerKilledAnotherPlayer)
@@ -82,8 +82,8 @@ namespace Fusion5vs5Gamemode.Client
             }
         }
 
-        public static void InvokePlayerSuicide(string playerName, bool wasLocalPlayer)
-        {
+    public static void InvokePlayerSuicide(string playerName, bool wasLocalPlayer)
+    {
             foreach (var ultEvent in Invoke5vs5UltEvent.Cache.Components)
             {
                 if (ultEvent.Event == Invoke5vs5UltEvent.Fusion5vs5GamemodeUltEvents.PlayerSuicide)
@@ -95,8 +95,8 @@ namespace Fusion5vs5Gamemode.Client
             }
         }
 
-        public static void InvokeWarmupPhaseStarted()
-        {
+    public static void InvokeWarmupPhaseStarted()
+    {
             foreach (var ultEvent in Invoke5vs5UltEvent.Cache.Components)
             {
                 if (ultEvent.Event == Invoke5vs5UltEvent.Fusion5vs5GamemodeUltEvents.WarmupPhaseStarted)
@@ -106,8 +106,8 @@ namespace Fusion5vs5Gamemode.Client
             }
         }
 
-        public static void InvokeBuyPhaseStarted()
-        {
+    public static void InvokeBuyPhaseStarted()
+    {
             foreach (var ultEvent in Invoke5vs5UltEvent.Cache.Components)
             {
                 if (ultEvent.Event == Invoke5vs5UltEvent.Fusion5vs5GamemodeUltEvents.BuyPhaseStarted)
@@ -117,8 +117,8 @@ namespace Fusion5vs5Gamemode.Client
             }
         }
 
-        public static void InvokePlayPhaseStarted()
-        {
+    public static void InvokePlayPhaseStarted()
+    {
             foreach (var ultEvent in Invoke5vs5UltEvent.Cache.Components)
             {
                 if (ultEvent.Event == Invoke5vs5UltEvent.Fusion5vs5GamemodeUltEvents.PlayPhaseStarted)
@@ -128,8 +128,8 @@ namespace Fusion5vs5Gamemode.Client
             }
         }
 
-        public static void InvokeRoundEndPhaseStarted()
-        {
+    public static void InvokeRoundEndPhaseStarted()
+    {
             foreach (var ultEvent in Invoke5vs5UltEvent.Cache.Components)
             {
                 if (ultEvent.Event == Invoke5vs5UltEvent.Fusion5vs5GamemodeUltEvents.RoundEndPhaseStarted)
@@ -139,8 +139,8 @@ namespace Fusion5vs5Gamemode.Client
             }
         }
 
-        public static void InvokeMatchHalfPhaseStarted()
-        {
+    public static void InvokeMatchHalfPhaseStarted()
+    {
             foreach (var ultEvent in Invoke5vs5UltEvent.Cache.Components)
             {
                 if (ultEvent.Event == Invoke5vs5UltEvent.Fusion5vs5GamemodeUltEvents.MatchHalfPhaseStarted)
@@ -150,8 +150,8 @@ namespace Fusion5vs5Gamemode.Client
             }
         }
 
-        public static void InvokeMatchEndPhaseStarted()
-        {
+    public static void InvokeMatchEndPhaseStarted()
+    {
             foreach (var ultEvent in Invoke5vs5UltEvent.Cache.Components)
             {
                 if (ultEvent.Event == Invoke5vs5UltEvent.Fusion5vs5GamemodeUltEvents.MatchEndPhaseStarted)
@@ -160,5 +160,4 @@ namespace Fusion5vs5Gamemode.Client
                 }
             }
         }
-    }
 }

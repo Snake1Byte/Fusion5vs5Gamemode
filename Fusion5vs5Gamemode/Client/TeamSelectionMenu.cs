@@ -2,68 +2,56 @@
 using SLZ.UI;
 using static Fusion5vs5Gamemode.Utilities.RadialMenu;
 
-namespace Fusion5vs5Gamemode.Client
+namespace Fusion5vs5Gamemode.Client;
+
+public static class TeamSelectionMenu
 {
-    public static class TeamSelectionMenu
+    // Root Menu
+    private static readonly RadialSubMenu TeamsMenu;
+
+    // Weapon Category
+
+    public static Action? OnAttackersSelected;
+    public static Action? OnDefendersSelected;
+    public static Action? OnSpectatorsSelected;
+
+
+    static TeamSelectionMenu()
     {
-        // Root Menu
-        private static RadialSubMenu _TeamsMenu;
+        TeamsMenu = new RadialSubMenu("Teams", PageItem.Directions.NORTH);
+        RadialMenuItem attackers = new RadialMenuItem("Attackers", PageItem.Directions.EAST,
+            AttackersSelected);
+        RadialMenuItem defenders = new RadialMenuItem("Defenders", PageItem.Directions.WEST,
+            DefendersSelected);
+        RadialMenuItem spectators = new RadialMenuItem("Spectators", PageItem.Directions.NORTH,
+            SpectatorsSelected);
+        TeamsMenu.Add(attackers);
+        TeamsMenu.Add(defenders);
+        TeamsMenu.Add(spectators);
+    }
 
-        // Weapon Category
-        private static RadialMenuItem _Attackers;
-        private static RadialMenuItem _Defenders;
-        private static RadialMenuItem _Spectators;
+    public static void AddTeamsMenu()
+    {
+        AddRootMenu(TeamsMenu);
+    }
 
-        public static Action OnAttackersSelected;
-        public static Action OnDefendersSelected;
-        public static Action OnSpectatorsSelected;
+    public static void RemoveTeamsMenu()
+    {
+        RemoveRootMenu(TeamsMenu);
+    }
 
-        static TeamSelectionMenu()
-        {
-            _TeamsMenu = new RadialSubMenu("Teams", PageItem.Directions.NORTH);
-            _Attackers = new RadialMenuItem("Attackers", PageItem.Directions.EAST,
-                Internal_OnAttackersSelected);
-            _Defenders = new RadialMenuItem("Defenders", PageItem.Directions.WEST,
-                Internal_OnDefendersSelected);
-            _Spectators = new RadialMenuItem("Spectators", PageItem.Directions.NORTH,
-                Internal_SpectatorsSelected);
-            _TeamsMenu.Add(_Attackers);
-            _TeamsMenu.Add(_Defenders);
-            _TeamsMenu.Add(_Spectators);
-        }
+    private static void AttackersSelected()
+    {
+        OnAttackersSelected?.Invoke();
+    }
 
-        public static void AddTeamsMenu()
-        {
-            AddRootMenu(_TeamsMenu);
-        }
+    private static void DefendersSelected()
+    {
+        OnDefendersSelected?.Invoke();
+    }
 
-        public static void RemoveTeamsMenu()
-        {
-            RemoveRootMenu(_TeamsMenu);
-        }
-
-        internal static void Internal_OnAttackersSelected()
-        {
-            if (OnAttackersSelected != null)
-            {
-                OnAttackersSelected();
-            }
-        }
-
-        internal static void Internal_OnDefendersSelected()
-        {
-            if (OnDefendersSelected != null)
-            {
-                OnDefendersSelected();
-            }
-        }
-
-        internal static void Internal_SpectatorsSelected()
-        {
-            if (OnSpectatorsSelected != null)
-            {
-                OnSpectatorsSelected();
-            }
-        }
+    private static void SpectatorsSelected()
+    {
+        OnSpectatorsSelected?.Invoke();
     }
 }

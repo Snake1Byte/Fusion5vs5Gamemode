@@ -1,16 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using Fusion5vs5Gamemode.SDK.Internal;
-using UnityEngine;
 using SLZ.Marrow.Warehouse;
-using UnityEditor;
-
+using UnityEngine;
 #if MELONLOADER
-using MelonLoader;
-using LabFusion.SDK.Gamemodes;
-using UnhollowerBaseLib.Attributes;
 using LabFusion.Utilities;
-using SLZ.VRMK;
 #endif
 
 namespace Fusion5vs5Gamemode.SDK
@@ -49,8 +43,8 @@ namespace Fusion5vs5Gamemode.SDK
         {
         }
 
-        public static readonly FusionComponentCache<GameObject, Fusion5vs5GamemodeDescriptor> Cache =
-            new FusionComponentCache<GameObject, Fusion5vs5GamemodeDescriptor>();
+        public static readonly FusionComponentCache<GameObject, Fusion5vs5GamemodeDescriptor?> Cache =
+            new FusionComponentCache<GameObject, Fusion5vs5GamemodeDescriptor?>();
 
         private void Awake()
         {
@@ -69,7 +63,7 @@ namespace Fusion5vs5Gamemode.SDK
             public static readonly string TerroristTeamName = "Lava Gang";
 
             public static readonly AvatarCrate DefaultAvatar =
-                AssetWarehouse.Instance.GetCrate<AvatarCrate>(BoneLib.CommonBarcodes.Avatars.FordBL);
+                AssetWarehouse.Instance.GetCrate<AvatarCrate>( "SLZ.BONELAB.Content.Avatar.CharFord");
         }
 #else
         public void OnBuyZoneExited() { }
