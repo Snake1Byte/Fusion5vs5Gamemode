@@ -28,6 +28,7 @@ public static class Commons
         public const string PlayerDeathsKey = DefaultPrefix + ".Deaths";
         public const string PlayerAssistsKey = DefaultPrefix + ".Assists";
         public const string RoundNumberKey = DefaultPrefix + ".RoundNumber";
+        public const string GameStateKey = DefaultPrefix + ".GameState";
     }
 
     public static class Events
@@ -47,7 +48,6 @@ public static class Commons
         public const string Fusion5vs5Started = "Fusion5vs5Started";
         public const string Fusion5vs5Aborted = "Fusion5vs5Aborted";
         public const string Fusion5vs5Over = "Fusion5vs5Over";
-        public const string NewGameState = "NewGameState";
         public const string PlayerLeft = "PlayerLeft";
         public const string PlayerSpectates = "PlayerSpectates";
         public const string SpawnPointAssigned = "SpawnPointAssigned";
@@ -85,10 +85,21 @@ public static class Commons
         return $"{Metadata.TeamScoreKey}.{team.ToString()}";
     }
 
-    public static Fusion5vs5GamemodeTeams GetTeamFromValue(string value)
+    public static Fusion5vs5GamemodeTeams? GetTeamFromValue(string value)
     {
         Log(value);
-        return (Fusion5vs5GamemodeTeams)Enum.Parse(typeof(Fusion5vs5GamemodeTeams), value);
+        try
+        {
+            return (Fusion5vs5GamemodeTeams)Enum.Parse(typeof(Fusion5vs5GamemodeTeams), value);
+        }
+        catch (Exception e)
+        {
+#if DEBUG
+            MelonLogger.Error(
+                $"{e}\nTried to parse an anum of type {nameof(Fusion5vs5GamemodeTeams)} with value \"{value}\".");
+#endif
+            return null;
+        }
     }
 
     public static string GetPlayerKillsKey(PlayerId killer)
@@ -145,11 +156,39 @@ public static class Commons
         return int.Parse(roundNumber);
     }
 
+    public static GameStates? GetGameStateFromValue(string value)
+    {
+        try
+        {
+            return (GameStates)Enum.Parse(typeof(GameStates), value);
+        }
+        catch (Exception e)
+        {
+            MelonLogger.Warning(
+                $"{e}\nTried to parse an anum of type {nameof(GameStates)} with value \"{value}\".");
+            return null;
+        }
+    }
+
+    public static GameStates? GetGameState(FusionDictionary<string, string> metadata)
+    {
+        Log(metadata);
+        if (metadata.TryGetValue(Metadata.GameStateKey, out string gameState))
+        {
+            return GetGameStateFromValue(gameState);
+        }
+        else
+        {
+            MelonLogger.Warning(
+                $"Could not find a GameState inside of Metadata dictionary.");
+            return null;
+        }
+    }
+
     public static void RotateGunPerpendicular(Gun gun, SerializedTransform forwardTransform)
     {
-            
     }
-        
+
     public static StringBuilder builder = new();
 
     public static void Log(params object[] parameters)

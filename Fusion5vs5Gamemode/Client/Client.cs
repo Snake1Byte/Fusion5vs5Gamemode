@@ -72,14 +72,8 @@ public class Client : Gamemode
     private string? _CounterTerroristTeamName;
     private string? _TerroristTeamName;
 
-    private Fusion5vs5GamemodeTeams? _LocalTeam;
-    private SerializedTransform? _LocalSpawnPoint;
     private float? _LocalPlayerVelocity;
     private string? _LastLocalAvatar;
-    private bool _LocalPlayerFrozen;
-
-
-    private GameStates? _State;
 
     private MenuCategory? _Menu;
     private IntElement? _MaxRoundsSetting;
@@ -316,7 +310,6 @@ public class Client : Gamemode
         RigManager rm = RigData.RigReferences.RigManager;
         rm.SwapAvatarCrate(_LastLocalAvatar, true);
         UnFreeze();
-        _LocalTeam = null;
         _IsBuyTime = false;
 
         if (NetworkInfo.IsServer && Server != null)
@@ -359,7 +352,6 @@ public class Client : Gamemode
         _CounterTerroristTeamName = default;
         _TerroristTeamName = default;
         _LastLocalAvatar = default;
-        _State = GameStates.Unknown;
         lock (_FreezeLock)
         {
             _LocalPlayerVelocity = default;
@@ -429,7 +421,7 @@ public class Client : Gamemode
         base.OnMetadataChanged(key, value);
 
 #if DEBUG
-        MelonLogger.Msg($"5vs5: OnMetadataChanged called: {key} {value}");
+        MelonLogger.Msg($"OnMetadataChanged(): {key} {value}");
         UpdateDebugText();
 #endif
 
@@ -438,14 +430,21 @@ public class Client : Gamemode
             string playerRaw = key.Split('.')[2];
             PlayerId? player = GetPlayerFromValue(playerRaw);
             if (player == null) return;
-            Fusion5vs5GamemodeTeams teamFromValue = GetTeamFromValue(value);
-            TeamRepresentation team = GetTeamRepresentation(teamFromValue);
+            Fusion5vs5GamemodeTeams? teamFromValue = GetTeamFromValue(value);
+            if (teamFromValue == null) return;
+            TeamRepresentation team = GetTeamRepresentation(teamFromValue.Value);
             OnTeamChanged(player, team);
         }
         else if (key.Equals(Commons.Metadata.RoundNumberKey))
         {
             int newScore = int.Parse(value);
             OnRoundNumberChanged(newScore);
+        }
+        else if (key.StartsWith(Commons.Metadata.GameStateKey))
+        {
+            GameStates? state = GetGameStateFromValue(value);
+            if (state == null) return;
+            OnStateChanged(state.Value);
         }
     }
 
@@ -461,7 +460,7 @@ public class Client : Gamemode
             if (killer == null || killed == null) return;
             killer.TryGetDisplayName(out string killerName);
             killed.TryGetDisplayName(out string killedName);
-            if (killed.IsSelf && _State != GameStates.Warmup)
+            if (killed.IsSelf && GetGameState(Metadata) != GameStates.Warmup)
             {
                 RigManager rm = RigData.RigReferences.RigManager;
                 SetFusionSpawnPoint(rm.physicsRig.m_pelvis);
@@ -475,7 +474,7 @@ public class Client : Gamemode
             PlayerId? player = GetPlayerFromValue(playerRaw);
             if (player == null) return;
             player.TryGetDisplayName(out string playerName);
-            if (player.IsSelf && _State != GameStates.Warmup)
+            if (player.IsSelf && GetGameState(Metadata) != GameStates.Warmup)
             {
                 RigManager rm = RigData.RigReferences.RigManager;
                 SetFusionSpawnPoint(rm.physicsRig.m_pelvis);
@@ -556,14 +555,16 @@ public class Client : Gamemode
         }
         else if (eventName.StartsWith(Events.TeamWonRound))
         {
-            Fusion5vs5GamemodeTeams teamFromValue = GetTeamFromValue(eventName.Split('.')[1]);
-            TeamRepresentation team = GetTeamRepresentation(teamFromValue);
+            Fusion5vs5GamemodeTeams? teamFromValue = GetTeamFromValue(eventName.Split('.')[1]);
+            if (teamFromValue == null) return;
+            TeamRepresentation team = GetTeamRepresentation(teamFromValue.Value);
             OnTeamWonRound(team);
         }
         else if (eventName.StartsWith(Events.TeamWonGame))
         {
-            Fusion5vs5GamemodeTeams teamFromValue = GetTeamFromValue(eventName.Split('.')[1]);
-            TeamRepresentation team = GetTeamRepresentation(teamFromValue);
+            Fusion5vs5GamemodeTeams? teamFromValue = GetTeamFromValue(eventName.Split('.')[1]);
+            if (teamFromValue == null) return;
+            TeamRepresentation team = GetTeamRepresentation(teamFromValue.Value);
             OnTeamWonGame(team);
         }
         else if (eventName.Equals(Events.GameTie))
@@ -582,21 +583,15 @@ public class Client : Gamemode
         {
             StopGamemode();
         }
-        else if (eventName.StartsWith(Events.NewGameState))
-        {
-            string stateRaw = eventName.Split('.')[1];
-            GameStates newState = (GameStates)Enum.Parse(typeof(GameStates), stateRaw);
-            OnStateChanged(newState);
-        }
         else if (eventName.StartsWith(Events.PlayerLeft))
         {
             string playerRaw = eventName.Split('.')[1];
             string teamRaw = eventName.Split('.')[2];
             PlayerId? player = GetPlayerFromValue(playerRaw);
             if (player == null) return;
-            Fusion5vs5GamemodeTeams team = GetTeamFromValue(teamRaw);
-
-            OnTeamRemoved(player, team);
+            Fusion5vs5GamemodeTeams? team = GetTeamFromValue(teamRaw);
+            if (team == null) return;
+            OnTeamRemoved(player, team.Value);
         }
         else if (eventName.StartsWith(Events.PlayerSpectates))
         {
@@ -667,7 +662,7 @@ public class Client : Gamemode
 
     private void OnStateChanged(GameStates state)
     {
-        Log(_State!);
+        Log(GetGameState(Metadata)!);
         MelonLogger.Msg($"New game state {state}.");
 
         _UITimer?.Stop();
@@ -675,9 +670,7 @@ public class Client : Gamemode
         _CurrentTimeLimit = TimeLimits[state];
         _UITimer?.Start();
 
-        _State = state;
-
-        switch (_State)
+        switch (state)
         {
             case GameStates.Warmup:
                 StartWarmupPhase();
