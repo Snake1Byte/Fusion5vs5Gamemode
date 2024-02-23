@@ -5,31 +5,30 @@ using static Fusion5vs5Gamemode.Shared.Commons;
 
 namespace Fusion5vs5Gamemode.Server;
 
-public class ServerOperationsImpl : IServerOperations
+public class FusionServerOperationsImpl : IFusionServerOperations
 {
     private Gamemode FusionGamemode { get; }
-    public Dictionary<string, string> Metadata { get; }
-    public ServerOperationsImpl(Gamemode fusionGamemode)
+    public FusionServerOperationsImpl(Gamemode fusionGamemode)
     {
         Log(fusionGamemode);
         FusionGamemode = fusionGamemode;
-        // We need a local copy of the Metadata dictionary since the sync'd one suffers from race conditions
-        Metadata = new Dictionary<string, string>();
     }
 
-    public bool SetMetadata(string key, string value)
+    public bool TrySetMetadata(string key, string value)
     {
         Log(key, value);
-        Metadata.Remove(key);
-        Metadata.Add(key, value);
         return FusionGamemode.TrySetMetadata(key, value);
     }
 
-    public string GetMetadata(string key)
+    public bool TryGetMetadata(string key, out string value)
     {
         Log(key);
-        string value = Metadata[key];
-        return value;
+        return FusionGamemode.TryGetMetadata(key, out value);
+    }
+
+    public bool TryRemoveMetadata(string key)
+    {
+        return FusionGamemode.TryRemoveMetadata(key);
     }
 
     public bool InvokeTrigger(string value)

@@ -28,7 +28,7 @@ namespace Fusion5vs5Gamemode.Server;
 public class Server : IDisposable
 {
     // Settings
-    private IServerOperations Operations { get; }
+    private IFusionServerOperations Operations { get; }
     private int MaxRounds { get; }
     private bool EnableHalftime { get; }
     private bool EnableLateJoining { get; }
@@ -60,7 +60,7 @@ public class Server : IDisposable
     private readonly Dictionary<PlayerId, PlayerStates> _PlayerStatesDict;
     private readonly List<PlayerId> _PlayersInBuyZone = new();
 
-    public Server(IServerOperations operations,
+    public Server(IFusionServerOperations operations,
         Fusion5vs5GamemodeTeams defendingTeam,
         List<SerializedTransform> counterTerroristSpawnPoints,
         List<SerializedTransform> terroristSpawnPoints,
@@ -163,7 +163,7 @@ public class Server : IDisposable
         if (team == null) return;
         team.Players.Remove(playerId);
         _PlayerStatesDict.Remove(playerId);
-        Operations.InvokeTrigger($"{Events.PlayerLeft}.{playerId.LongId}.{team.TeamName}");
+        Operations.InvokeTrigger($"{Events.PlayerLeft}.{playerId.LongId}");
     }
 
     private void OnPlayerAction(PlayerId playerId, PlayerActionType type, PlayerId otherPlayer)
@@ -285,7 +285,7 @@ public class Server : IDisposable
 
             selectedTeam.Players.Add(player);
             Team? oldTeam = currentTeam;
-            Operations.SetMetadata(GetTeamMemberKey(player), selectedTeam.TeamName);
+            Operations.TrySetMetadata(GetTeamMemberKey(player), selectedTeam.TeamName);
 #if DEBUG
             MelonLogger.Msg($"Player {playerName} switched teams to {selectedTeam.TeamName}");
 #endif
@@ -363,7 +363,9 @@ public class Server : IDisposable
         _PlayersInBuyZone.Remove(player);
         SetPlayerState(player, PlayerStates.Spectator);
         DetermineTeamWon(player, team);
-        Operations.InvokeTrigger($"{Events.PlayerSpectates}.{player.LongId}");
+        Operations.TryRemoveMetadata(Commons.GetTeamMemberKey(player));
+        UnFreezePlayer(player);
+        KillPlayer(player);
     }
 
     private SerializedTransform? AssignSpawnPoint(PlayerId player, List<SerializedTransform> spawnPoints)
@@ -378,8 +380,8 @@ public class Server : IDisposable
                 _SpawnPoints.Add(player, spawnPoint);
                 Vector3 pos = spawnPoint.position.ToUnityVector3();
                 Vector3 rot = spawnPoint.rotation.ToUnityQuaternion().eulerAngles;
-                Operations.InvokeTrigger(
-                    $"{Events.SpawnPointAssigned}.{player.LongId}.{pos.x},{pos.y},{pos.z},{rot.x},{rot.y},{rot.z}");
+                Operations.TrySetMetadata(Commons.GetSpawnPointKey(player),
+                    $"{pos.x},{pos.y},{pos.z},{rot.x},{rot.y},{rot.z}");
                 return spawnPoint;
             }
         }
@@ -438,7 +440,7 @@ public class Server : IDisposable
             return;
         }
 
-        Operations.SetMetadata(GetTeamScoreKey(teamEnum.Value), teamScore.ToString());
+        Operations.TrySetMetadata(GetTeamScoreKey(teamEnum.Value), teamScore.ToString());
     }
 
     private int? GetTeamScore(Team team)
@@ -452,7 +454,7 @@ public class Server : IDisposable
             return null;
         }
 
-        string teamScore = Operations.GetMetadata(GetTeamScoreKey(teamEnum.Value));
+        Operations.TryGetMetadata(GetTeamScoreKey(teamEnum.Value), out string teamScore);
         return int.Parse(teamScore);
     }
 
@@ -543,8 +545,8 @@ public class Server : IDisposable
         if (GetPlayerState(killer) != PlayerStates.Alive || GetPlayerState(killed) != PlayerStates.Alive)
             return;
 
-        SetPlayerKills(killer, GetPlayerKills(Operations.Metadata, killer) + 1);
-        SetPlayerDeaths(killed, GetPlayerDeaths(Operations.Metadata, killed) + 1);
+        SetPlayerKills(killer, GetPlayerKills(killer) + 1);
+        SetPlayerDeaths(killed, GetPlayerDeaths(killed) + 1);
         SetPlayerState(killed, PlayerStates.Dead);
 
         Operations.InvokeTrigger($"{Events.PlayerKilledPlayer}.{killer.LongId}.{killed.LongId}");
@@ -562,7 +564,7 @@ public class Server : IDisposable
         if (GetPlayerState(playerId) != PlayerStates.Alive)
             return;
 
-        SetPlayerDeaths(playerId, GetPlayerDeaths(Operations.Metadata, playerId) + 1);
+        SetPlayerDeaths(playerId, GetPlayerDeaths(playerId) + 1);
         SetPlayerState(playerId, PlayerStates.Dead);
 
         Operations.InvokeTrigger($"{Events.PlayerSuicide}.{playerId.LongId}");
@@ -583,25 +585,25 @@ public class Server : IDisposable
     private void SetPlayerKills(PlayerId killer, int kills)
     {
         Log(killer, kills);
-        Operations.SetMetadata(GetPlayerKillsKey(killer), kills.ToString());
+        Operations.TrySetMetadata(GetPlayerKillsKey(killer), kills.ToString());
     }
 
     private void SetPlayerDeaths(PlayerId killed, int deaths)
     {
         Log(killed, deaths);
-        Operations.SetMetadata(GetPlayerDeathsKey(killed), deaths.ToString());
+        Operations.TrySetMetadata(GetPlayerDeathsKey(killed), deaths.ToString());
     }
 
     private void SetPlayerAssists(PlayerId assister, int assists)
     {
         Log(assister, assists);
-        Operations.SetMetadata(GetPlayerAssistsKey(assister), assists.ToString());
+        Operations.TrySetMetadata(GetPlayerAssistsKey(assister), assists.ToString());
     }
 
     private int GetPlayerAssists(PlayerId assister)
     {
         Log(assister);
-        string assistsScore = Operations.GetMetadata(GetPlayerAssistsKey(assister));
+        Operations.TryGetMetadata(GetPlayerAssistsKey(assister), out string assistsScore);
         return int.Parse(assistsScore);
     }
 
@@ -985,25 +987,25 @@ public class Server : IDisposable
     public void SetGameState(GameStates state)
     {
         Log(state);
-        Operations.SetMetadata(Metadata.GameStateKey, state.ToString());
+        Operations.TrySetMetadata(Metadata.GameStateKey, state.ToString());
     }
 
     private void IncrementRoundNumber()
     {
         Log();
-        SetRoundNumber(GetRoundNumber(Operations.Metadata) + 1);
+        SetRoundNumber(GetRoundNumber() + 1);
     }
 
     private void SetRoundNumber(int i)
     {
         Log(i);
-        Operations.SetMetadata(Metadata.RoundNumberKey, i.ToString());
+        Operations.TrySetMetadata(Metadata.RoundNumberKey, i.ToString());
     }
 
     private bool HalfOfRoundsPlayed()
     {
         Log();
-        string number = Operations.GetMetadata(Metadata.RoundNumberKey);
+        Operations.TryGetMetadata(Metadata.RoundNumberKey, out string number);
         int roundNumber = int.Parse(number);
         return roundNumber == MaxRounds / 2;
     }
@@ -1035,7 +1037,7 @@ public class Server : IDisposable
     private bool IsRoundNumberMaxedOut()
     {
         Log();
-        string number = Operations.GetMetadata(Metadata.RoundNumberKey);
+        Operations.TryGetMetadata(Metadata.RoundNumberKey, out string number);
         int roundNumber = int.Parse(number);
 
         return roundNumber == MaxRounds;

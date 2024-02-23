@@ -1,12 +1,15 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.Numerics;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using BoneLib;
 using Fusion5vs5Gamemode.SDK;
 using Fusion5vs5Gamemode.Utilities;
 using LabFusion.Data;
+using LabFusion.Extensions;
 using LabFusion.Representation;
 using LabFusion.SDK.Gamemodes;
 using MelonLoader;
@@ -29,6 +32,8 @@ public static class Commons
         public const string PlayerAssistsKey = DefaultPrefix + ".Assists";
         public const string RoundNumberKey = DefaultPrefix + ".RoundNumber";
         public const string GameStateKey = DefaultPrefix + ".GameState";
+        public const string SpawnPointKey = DefaultPrefix + ".SpawnPoint";
+        public const string PlayerFrozenKey = DefaultPrefix + ".PlayerFrozen";
     }
 
     public static class Events
@@ -49,8 +54,6 @@ public static class Commons
         public const string Fusion5vs5Aborted = "Fusion5vs5Aborted";
         public const string Fusion5vs5Over = "Fusion5vs5Over";
         public const string PlayerLeft = "PlayerLeft";
-        public const string PlayerSpectates = "PlayerSpectates";
-        public const string SpawnPointAssigned = "SpawnPointAssigned";
         public const string BuyTimeOver = "BuyTimeOver";
         public const string BuyTimeStart = "BuyTimeStart";
     }
@@ -72,6 +75,13 @@ public static class Commons
     }
 
     public const string SpectatorAvatar = CommonBarcodes.Avatars.PolyBlank;
+    public static FusionDictionary<string, string> _Metadata { get; set; } = new();
+
+    public static Fusion5vs5GamemodeTeams? GetTeam(PlayerId localId)
+    {
+        _Metadata.TryGetValue(GetTeamMemberKey(localId), out string team);
+        return GetTeamFromValue(team);
+    }
 
     public static string GetTeamMemberKey(PlayerId id)
     {
@@ -132,32 +142,34 @@ public static class Commons
             }
         }
 
+        MelonLogger.Warning($"Could not find player with LongId {player} in GetPlayerFromValue()!");
         return null;
     }
 
-    public static int GetPlayerKills(FusionDictionary<string, string> metadata, PlayerId killer)
+    public static int GetPlayerKills(PlayerId killer)
     {
-        Log(metadata, killer);
-        metadata.TryGetValue(GetPlayerKillsKey(killer), out string killerScore);
+        Log(killer);
+        _Metadata.TryGetValue(GetPlayerKillsKey(killer), out string killerScore);
         return int.Parse(killerScore);
     }
 
-    public static int GetPlayerDeaths(FusionDictionary<string, string> metadata, PlayerId killed)
+    public static int GetPlayerDeaths(PlayerId killed)
     {
-        Log(metadata, killed);
-        metadata.TryGetValue(GetPlayerDeathsKey(killed), out string deathScore);
+        Log(killed);
+        _Metadata.TryGetValue(GetPlayerDeathsKey(killed), out string deathScore);
         return int.Parse(deathScore);
     }
 
-    public static int GetRoundNumber(FusionDictionary<string, string> metadata)
+    public static int GetRoundNumber()
     {
-        Log(metadata);
-        metadata.TryGetValue(Metadata.RoundNumberKey, out string roundNumber);
+        Log();
+        _Metadata.TryGetValue(Metadata.RoundNumberKey, out string roundNumber);
         return int.Parse(roundNumber);
     }
 
     public static GameStates? GetGameStateFromValue(string value)
     {
+        Log();
         try
         {
             return (GameStates)Enum.Parse(typeof(GameStates), value);
@@ -170,10 +182,10 @@ public static class Commons
         }
     }
 
-    public static GameStates? GetGameState(FusionDictionary<string, string> metadata)
+    public static GameStates? GetGameState()
     {
-        Log(metadata);
-        if (metadata.TryGetValue(Metadata.GameStateKey, out string gameState))
+        Log();
+        if (_Metadata.TryGetValue(Metadata.GameStateKey, out string gameState))
         {
             return GetGameStateFromValue(gameState);
         }
@@ -181,6 +193,67 @@ public static class Commons
         {
             MelonLogger.Warning(
                 $"Could not find a GameState inside of Metadata dictionary.");
+            return null;
+        }
+    }
+
+    public static SerializedTransform? GetSpawnPointFromValue(string value)
+    {
+        Log(value);
+        try
+        {
+            string[] split = value.Split(',');
+            Vector3 pos = new Vector3(float.Parse(split[0]), float.Parse(split[1]), float.Parse(split[2]));
+            UnityEngine.Vector3 rot =
+                new UnityEngine.Vector3(float.Parse(split[3]), float.Parse(split[4]), float.Parse(split[5]));
+            SerializedTransform spawnPoint = new SerializedTransform
+            {
+                position = pos,
+                rotation = UnityEngine.Quaternion.Euler(rot).ToSystemQuaternion()
+            };
+            return spawnPoint;
+        }
+        catch (Exception e)
+        {
+            MelonLogger.Warning(
+                $"{e}\nCould not convert {value} to a {nameof(SerializedTransform)} in GetSpawnPointFromValue()!");
+            return null;
+        }
+    }
+
+    public static SerializedTransform? GetSpawnPoint(PlayerId player)
+    {
+        Log(player);
+        if (_Metadata.TryGetValue(GetSpawnPointKey(player), out string spawnPointRaw))
+        {
+            return GetSpawnPointFromValue(spawnPointRaw);
+        }
+
+        return null;
+    }
+
+    public static string GetSpawnPointKey(PlayerId player)
+    {
+        return $"{Metadata.SpawnPointKey}.{player.LongId}";
+    }
+
+    public static string GetPlayerFrozenKey(PlayerId player)
+    {
+        return $"{Metadata.PlayerFrozenKey}.{player.LongId}";
+    }
+
+    public static bool? IsPlayerFrozen(PlayerId player)
+    {
+            _Metadata.TryGetValue(GetPlayerFrozenKey(player), out string frozen);
+        try
+        {
+
+            return bool.Parse(frozen);
+        }
+        catch (Exception e)
+        {
+            MelonLogger.Warning(
+                $"{e}\nCould not convert {frozen} to a {nameof(SerializedTransform)} in GetSpawnPointFromValue()!");
             return null;
         }
     }

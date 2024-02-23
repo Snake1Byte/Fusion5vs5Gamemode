@@ -128,7 +128,7 @@ python "D:\Windows User\Documents\Python\a\Copy_Files.py" "C:\Users\Snek\source\
     <Compile Include="SDK\Internal\Fusion5vs5GamemodeBehaviour.cs" />
     <Compile Include="SDK\Invoke5vs5UltEvent.cs" />
     <Compile Include="Server\Server.cs" />
-    <Compile Include="Server\ServerOperationsImpl.cs" />
+    <Compile Include="Server\FusionServerOperationsImpl.cs" />
     <Compile Include="Shared\Commons.cs" />
     <Compile Include="Shared\Fusion5vs5ClientRequest.cs" />
     <Compile Include="Shared\Fusion5vs5CustomModule.cs" />
@@ -141,7 +141,7 @@ python "D:\Windows User\Documents\Python\a\Copy_Files.py" "C:\Users\Snek\source\
     <Compile Include="Utilities\HarmonyPatches\ProjectilePatches.cs" />
     <Compile Include="Utilities\HarmonyPatches\SpawnResponseMessagePatches.cs" />
     <Compile Include="Utilities\HarmonyPatches\TriggerLasersPatches.cs" />
-    <Compile Include="Utilities\IServerOperations.cs" />
+    <Compile Include="Utilities\IFusionServerOperations.cs" />
     <Compile Include="Utilities\ProjectileRicochet.cs" />
     <Compile Include="Utilities\ProjectileTrace.cs" />
     <Compile Include="Utilities\RadialMenu.cs" />
