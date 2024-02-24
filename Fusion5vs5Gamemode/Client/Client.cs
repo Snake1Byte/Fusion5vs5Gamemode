@@ -460,6 +460,24 @@ public class Client : Gamemode
                     transform.Value.rotation.ToUnityQuaternion().eulerAngles);
             }
         }
+        else if (key.StartsWith(Commons.Metadata.PlayerFrozenKey))
+        {
+            string playerRaw = key.Split('.')[2];
+            PlayerId? player = GetPlayerFromValue(playerRaw);
+            if (player == null) return;
+            if (player.IsSelf)
+            {
+                bool frozen = bool.Parse(value);
+                if (frozen)
+                {
+                    Freeze(true);
+                }
+                else
+                {
+                    UnFreeze(true);
+                }
+            }
+        }
     }
 
     protected override void OnMetadataRemoved(string key)
@@ -556,26 +574,6 @@ public class Client : Gamemode
             if (player.IsSelf)
             {
                 SetSpectator();
-            }
-        }
-        else if (eventName.StartsWith(Events.Freeze))
-        {
-            string playerRaw = eventName.Split('.')[1];
-            PlayerId? player = GetPlayerFromValue(playerRaw);
-            if (player == null) return;
-            if (player.IsSelf)
-            {
-                Freeze();
-            }
-        }
-        else if (eventName.StartsWith(Events.UnFreeze))
-        {
-            string playerRaw = eventName.Split('.')[1];
-            PlayerId? player = GetPlayerFromValue(playerRaw);
-            if (player == null) return;
-            if (player.IsSelf)
-            {
-                UnFreeze();
             }
         }
         else if (eventName.StartsWith(Events.TeamWonRound))
@@ -945,7 +943,7 @@ public class Client : Gamemode
         RigManager rm = RigData.RigReferences.RigManager;
         rm.SwapAvatarCrate(_LastLocalAvatar, true, (Action<bool>)(_ =>
         {
-            Freeze();
+            Freeze(true);
             Respawn();
         }));
     }
@@ -1041,38 +1039,40 @@ public class Client : Gamemode
         FusionPlayer.SetSpawnPoints(go.transform);
     }
 
-    private void Freeze()
+    private void Freeze(bool force = false)
     {
-        Log();
+        Log(force);
         lock (_FreezeLock)
         {
             bool? localPlayerFrozen = IsPlayerFrozen(PlayerIdManager.LocalId);
-            if (!localPlayerFrozen.HasValue || localPlayerFrozen.Value) return;
-            TrySetMetadata(GetPlayerFrozenKey(PlayerIdManager.LocalId), true.ToString());
+            if ((!localPlayerFrozen.HasValue || localPlayerFrozen.Value) && !force) return;
 
+#if DEBUG
             MelonLogger.Msg(
                 $"1: Current avatar on Freeze: {RigData.RigReferences.RigManager.AvatarCrate._barcode} with _LocalPlayerVelocity: {_LocalPlayerVelocity}");
+#endif
             RemapRig rig = RigData.RigReferences.RigManager.remapHeptaRig;
             rig.jumpEnabled = false;
-            _LocalPlayerVelocity = rig.maxVelocity;
+            _LocalPlayerVelocity = rig.maxVelocity == 0.001f ? _LocalPlayerVelocity : rig.maxVelocity;
             rig.maxVelocity = 0.001f;
+#if DEBUG
             MelonLogger.Msg(
                 $"2: Current avatar on Freeze: {RigData.RigReferences.RigManager.AvatarCrate._barcode} with _LocalPlayerVelocity: {_LocalPlayerVelocity}");
+#endif
         }
     }
 
-    private void UnFreeze()
+    private void UnFreeze(bool force = false)
     {
-        Log();
+        Log(force);
         lock (_FreezeLock)
         {
             bool? localPlayerFrozen = IsPlayerFrozen(PlayerIdManager.LocalId);
-            if (!localPlayerFrozen.HasValue || !localPlayerFrozen.Value) return;
-            TrySetMetadata(GetPlayerFrozenKey(PlayerIdManager.LocalId), false.ToString());
-
+            if ((!localPlayerFrozen.HasValue || !localPlayerFrozen.Value) && !force) return;
+#if DEBUG
             MelonLogger.Msg(
                 $"1: Current avatar on UnFreeze(): {RigData.RigReferences.RigManager.AvatarCrate._barcode} with _LocalPlayerVelocity: {_LocalPlayerVelocity}");
-
+#endif
             if (_LocalPlayerVelocity == null)
             {
                 RigManager rm = RigData.RigReferences.RigManager;
@@ -1085,9 +1085,10 @@ public class Client : Gamemode
                 rig.jumpEnabled = true;
             }
 
-
+#if DEBUG
             MelonLogger.Msg(
                 $"2: Current avatar on UnFreeze(): {RigData.RigReferences.RigManager.AvatarCrate._barcode} with _LocalPlayerVelocity: {_LocalPlayerVelocity}");
+#endif
         }
     }
 

@@ -5,6 +5,7 @@ using System.Numerics;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using BoneLib;
 using Fusion5vs5Gamemode.SDK;
 using Fusion5vs5Gamemode.Utilities;
@@ -45,8 +46,6 @@ public static class Commons
         public const string ReviveAndFreezePlayer = "ReviveAndFreezePlayer";
         public const string RespawnPlayer = "RespawnPlayer";
         public const string SetSpectator = "SetSpectator";
-        public const string Freeze = "Freeze";
-        public const string UnFreeze = "UnFreeze";
         public const string TeamWonRound = "TeamWonRound";
         public const string TeamWonGame = "TeamWonGame";
         public const string GameTie = "GameTie";
@@ -79,8 +78,13 @@ public static class Commons
 
     public static Fusion5vs5GamemodeTeams? GetTeam(PlayerId localId)
     {
-        _Metadata.TryGetValue(GetTeamMemberKey(localId), out string team);
-        return GetTeamFromValue(team);
+        Log(localId);
+        if (_Metadata.TryGetValue(GetTeamMemberKey(localId), out string team))
+        {
+            return GetTeamFromValue(team);
+        }
+
+        return null;
     }
 
     public static string GetTeamMemberKey(PlayerId id)
@@ -105,8 +109,8 @@ public static class Commons
         catch (Exception e)
         {
 #if DEBUG
-            MelonLogger.Error(
-                $"{e}\nTried to parse an anum of type {nameof(Fusion5vs5GamemodeTeams)} with value \"{value}\".");
+            MelonLogger.Warning(
+                $"Tried to parse an enum of type {nameof(Fusion5vs5GamemodeTeams)} with value \"{value}\" in GetTeamFromValue()!\n{e}");
 #endif
             return null;
         }
@@ -169,7 +173,7 @@ public static class Commons
 
     public static GameStates? GetGameStateFromValue(string value)
     {
-        Log();
+        Log(value);
         try
         {
             return (GameStates)Enum.Parse(typeof(GameStates), value);
@@ -177,7 +181,7 @@ public static class Commons
         catch (Exception e)
         {
             MelonLogger.Warning(
-                $"{e}\nTried to parse an anum of type {nameof(GameStates)} with value \"{value}\".");
+                $"Tried to parse an enum of type {nameof(GameStates)} with value \"{value}\" in GetGameStateFromValue()!\n{e}");
             return null;
         }
     }
@@ -189,12 +193,10 @@ public static class Commons
         {
             return GetGameStateFromValue(gameState);
         }
-        else
-        {
-            MelonLogger.Warning(
-                $"Could not find a GameState inside of Metadata dictionary.");
-            return null;
-        }
+
+        MelonLogger.Warning(
+            $"Could not find a GameState inside of Metadata dictionary.");
+        return null;
     }
 
     public static SerializedTransform? GetSpawnPointFromValue(string value)
@@ -216,7 +218,7 @@ public static class Commons
         catch (Exception e)
         {
             MelonLogger.Warning(
-                $"{e}\nCould not convert {value} to a {nameof(SerializedTransform)} in GetSpawnPointFromValue()!");
+                $"Could not convert {value} to a {nameof(SerializedTransform)} in GetSpawnPointFromValue()!\n{e}");
             return null;
         }
     }
@@ -234,35 +236,42 @@ public static class Commons
 
     public static string GetSpawnPointKey(PlayerId player)
     {
+        Log(player);
         return $"{Metadata.SpawnPointKey}.{player.LongId}";
     }
 
     public static string GetPlayerFrozenKey(PlayerId player)
     {
+        Log(player);
         return $"{Metadata.PlayerFrozenKey}.{player.LongId}";
     }
 
     public static bool? IsPlayerFrozen(PlayerId player)
     {
-            _Metadata.TryGetValue(GetPlayerFrozenKey(player), out string frozen);
-        try
+        Log(player);
+        if (_Metadata.TryGetValue(GetPlayerFrozenKey(player), out string frozen))
         {
+            try
+            {
+                return bool.Parse(frozen);
+            }
+            catch (Exception e)
+            {
+                MelonLogger.Warning(
+                    $"Could not convert {frozen} to a {nameof(SerializedTransform)} in GetSpawnPointFromValue()!\n{e}");
+                return null;
+            }
+        }
 
-            return bool.Parse(frozen);
-        }
-        catch (Exception e)
-        {
-            MelonLogger.Warning(
-                $"{e}\nCould not convert {frozen} to a {nameof(SerializedTransform)} in GetSpawnPointFromValue()!");
-            return null;
-        }
+        return null;
     }
 
     public static void RotateGunPerpendicular(Gun gun, SerializedTransform forwardTransform)
     {
     }
 
-    public static StringBuilder builder = new();
+    private static StringBuilder builder = new();
+    private static int threadNameCounter;
 
     public static void Log(params object[] parameters)
     {
@@ -281,7 +290,17 @@ public static class Commons
             builder.Append(formattedTime);
             builder.Append("\t");
 
-            builder.Append(method.DeclaringType?.FullName + " ");
+            string? threadName = Thread.CurrentThread.Name;
+            if (threadName == null)
+            {
+                threadName = $"[Thread {threadNameCounter++}]";
+                Thread.CurrentThread.Name = threadName;
+            }
+
+            builder.Append(threadName);
+            builder.Append("\t");
+
+            builder.Append(method.DeclaringType?.FullName + ".");
             int i = 0;
             builder.Append(method.Name);
             if (method.GetParameters().Length > 0)
@@ -339,7 +358,18 @@ public static class Commons
         }
         catch (Exception e)
         {
-            MelonLogger.Error($"Exception during Log(): {e}");
+            builder.Append("\n");
+            StackFrame frame = new StackFrame(1);
+            MethodBase method = frame.GetMethod();
+            if (method != null)
+            {
+                string name = $"{method.DeclaringType?.FullName}.{method.Name}";
+                MelonLogger.Warning($"Exception during Log() after {name}: {e}");
+            }
+            else
+            {
+                MelonLogger.Warning($"Exception during Log(): {e}");
+            }
         }
 #endif
     }

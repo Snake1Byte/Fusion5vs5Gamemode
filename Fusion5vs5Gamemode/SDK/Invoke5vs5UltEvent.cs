@@ -73,8 +73,6 @@ namespace Fusion5vs5Gamemode.SDK
         public void Invoke()
         {
             var holder = GetComponent<UltEventHolder>();
-            MelonLogger.Msg($"{Event.ToString()} invoked.");
-
             if (holder != null)
                 holder.Invoke();
         }

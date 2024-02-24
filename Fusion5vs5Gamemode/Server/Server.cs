@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Timers;
-using Fusion5vs5Gamemode.Client;
 using Fusion5vs5Gamemode.SDK;
 using Fusion5vs5Gamemode.Shared;
 using Fusion5vs5Gamemode.Utilities;
@@ -197,6 +196,9 @@ public class Server : IDisposable
             else if (type == PlayerActionType.DEATH)
             {
                 DyingAnimationCompleted(playerId);
+            } else if (type == PlayerActionType.DEALT_DAMAGE_TO_OTHER_PLAYER)
+            {
+                // stuff for player assist
             }
         }
     }
@@ -284,7 +286,6 @@ public class Server : IDisposable
             currentTeam?.Players.Remove(player);
 
             selectedTeam.Players.Add(player);
-            Team? oldTeam = currentTeam;
             Operations.TrySetMetadata(GetTeamMemberKey(player), selectedTeam.TeamName);
 #if DEBUG
             MelonLogger.Msg($"Player {playerName} switched teams to {selectedTeam.TeamName}");
@@ -340,12 +341,13 @@ public class Server : IDisposable
                 }
             }
 
-            if (oldTeam != null) DetermineTeamWon(player, oldTeam);
+            DetermineTeamWon(player, selectedTeam);
         }
     }
 
     private void SpectatorJoinRequest(PlayerId player)
     {
+        Log(player);
         Team? team = GetTeam(player);
         if (team == null) return;
         if (_State is GameStates.MatchHalfPhase or GameStates.MatchEndPhase)
@@ -361,11 +363,15 @@ public class Server : IDisposable
         _SpawnPoints.Remove(player);
         team.Players.Remove(player);
         _PlayersInBuyZone.Remove(player);
+        PlayerStates oldState = GetPlayerState(player);
         SetPlayerState(player, PlayerStates.Spectator);
         DetermineTeamWon(player, team);
         Operations.TryRemoveMetadata(Commons.GetTeamMemberKey(player));
         UnFreezePlayer(player);
-        KillPlayer(player);
+        if (oldState == PlayerStates.Alive)
+        {
+            KillPlayer(player);
+        }
     }
 
     private SerializedTransform? AssignSpawnPoint(PlayerId player, List<SerializedTransform> spawnPoints)
@@ -579,7 +585,13 @@ public class Server : IDisposable
     {
         Log(playerId);
         if (_State == GameStates.PlayPhase || _State == GameStates.RoundEndPhase)
+        {
             Operations.InvokeTrigger($"{Events.SetSpectator}.{playerId.LongId}");
+        }
+        else
+        {
+            
+        }
     }
 
     private void SetPlayerKills(PlayerId killer, int kills)
@@ -638,6 +650,7 @@ public class Server : IDisposable
         Log(player);
         SetPlayerState(player, PlayerStates.Alive);
         Operations.InvokeTrigger($"{Events.ReviveAndFreezePlayer}.{player.LongId}");
+        Operations.TrySetMetadata(GetPlayerFrozenKey(PlayerIdManager.LocalId), true.ToString());
     }
 
     private void KillPlayer(PlayerId player)
@@ -655,13 +668,13 @@ public class Server : IDisposable
     private void FreezePlayer(PlayerId player)
     {
         Log(player);
-        Operations.InvokeTrigger($"{Events.Freeze}.{player.LongId}");
+        Operations.TrySetMetadata(GetPlayerFrozenKey(PlayerIdManager.LocalId), true.ToString());
     }
 
     private void UnFreezePlayer(PlayerId player)
     {
         Log(player);
-        Operations.InvokeTrigger($"{Events.UnFreeze}.{player.LongId}");
+        Operations.TrySetMetadata(GetPlayerFrozenKey(PlayerIdManager.LocalId), false.ToString());
     }
 
     private void FreezeAllPlayers()

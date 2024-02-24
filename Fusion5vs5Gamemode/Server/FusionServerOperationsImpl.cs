@@ -22,12 +22,13 @@ public class FusionServerOperationsImpl : IFusionServerOperations
 
     public bool TryGetMetadata(string key, out string value)
     {
-        Log(key);
+        Log(key, string.Empty);
         return FusionGamemode.TryGetMetadata(key, out value);
     }
 
     public bool TryRemoveMetadata(string key)
     {
+        Log(key);
         return FusionGamemode.TryRemoveMetadata(key);
     }
 
