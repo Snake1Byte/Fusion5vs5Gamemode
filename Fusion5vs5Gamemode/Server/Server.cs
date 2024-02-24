@@ -196,7 +196,8 @@ public class Server : IDisposable
             else if (type == PlayerActionType.DEATH)
             {
                 DyingAnimationCompleted(playerId);
-            } else if (type == PlayerActionType.DEALT_DAMAGE_TO_OTHER_PLAYER)
+            }
+            else if (type == PlayerActionType.DEALT_DAMAGE_TO_OTHER_PLAYER)
             {
                 // stuff for player assist
             }
@@ -264,6 +265,14 @@ public class Server : IDisposable
 #if DEBUG
             MelonLogger.Warning(
                 $"Player {playerName} tried to switch teams during MatchHalfPhase/MatchEndPhase, aborting.");
+            return;
+#endif
+        }
+        else if (GetPlayerState(player) == PlayerStates.Dying)
+        {
+#if DEBUG
+            MelonLogger.Warning(
+                $"Player {playerName} tried to switch teams while dying, aborting.");
 #endif
             return;
         }
@@ -349,7 +358,7 @@ public class Server : IDisposable
     {
         Log(player);
         Team? team = GetTeam(player);
-        if (team == null) return;
+        if (team == null || GetPlayerState(player) == PlayerStates.Dying) return;
         if (_State is GameStates.MatchHalfPhase or GameStates.MatchEndPhase)
         {
 #if DEBUG
@@ -553,7 +562,7 @@ public class Server : IDisposable
 
         SetPlayerKills(killer, GetPlayerKills(killer) + 1);
         SetPlayerDeaths(killed, GetPlayerDeaths(killed) + 1);
-        SetPlayerState(killed, PlayerStates.Dead);
+        SetPlayerState(killed, PlayerStates.Dying);
 
         Operations.InvokeTrigger($"{Events.PlayerKilledPlayer}.{killer.LongId}.{killed.LongId}");
 
@@ -571,7 +580,7 @@ public class Server : IDisposable
             return;
 
         SetPlayerDeaths(playerId, GetPlayerDeaths(playerId) + 1);
-        SetPlayerState(playerId, PlayerStates.Dead);
+        SetPlayerState(playerId, PlayerStates.Dying);
 
         Operations.InvokeTrigger($"{Events.PlayerSuicide}.{playerId.LongId}");
 
@@ -584,13 +593,14 @@ public class Server : IDisposable
     private void DyingAnimationCompleted(PlayerId playerId)
     {
         Log(playerId);
+        SetPlayerState(playerId, PlayerStates.Dead);
         if (_State == GameStates.PlayPhase || _State == GameStates.RoundEndPhase)
         {
             Operations.InvokeTrigger($"{Events.SetSpectator}.{playerId.LongId}");
         }
-        else
+        else if (_State == GameStates.BuyPhase)
         {
-            
+            ReviveAndFreezePlayer(playerId);
         }
     }
 
@@ -946,7 +956,7 @@ public class Server : IDisposable
                 int? cScore = GetTeamScore(CounterTerroristTeam);
                 if (tScore == null || cScore == null)
                 {
-                    MelonLogger.Error($"Did not swap teams since GetTeamScore() returned null instead of an int!");
+                    MelonLogger.Warning($"Could not determine winner since GetTeamScore() returned null instead of an int!");
                     return;
                 }
 
@@ -1131,6 +1141,7 @@ public class Server : IDisposable
     {
         Spectator = 0,
         Alive = 1,
-        Dead = 2
+        Dead = 2,
+        Dying = 3
     }
 }
