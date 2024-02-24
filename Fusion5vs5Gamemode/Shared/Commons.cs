@@ -1,12 +1,16 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.Numerics;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading;
 using BoneLib;
 using Fusion5vs5Gamemode.SDK;
 using Fusion5vs5Gamemode.Utilities;
 using LabFusion.Data;
+using LabFusion.Extensions;
 using LabFusion.Representation;
 using LabFusion.SDK.Gamemodes;
 using MelonLoader;
@@ -28,6 +32,9 @@ public static class Commons
         public const string PlayerDeathsKey = DefaultPrefix + ".Deaths";
         public const string PlayerAssistsKey = DefaultPrefix + ".Assists";
         public const string RoundNumberKey = DefaultPrefix + ".RoundNumber";
+        public const string GameStateKey = DefaultPrefix + ".GameState";
+        public const string SpawnPointKey = DefaultPrefix + ".SpawnPoint";
+        public const string PlayerFrozenKey = DefaultPrefix + ".PlayerFrozen";
     }
 
     public static class Events
@@ -39,18 +46,13 @@ public static class Commons
         public const string ReviveAndFreezePlayer = "ReviveAndFreezePlayer";
         public const string RespawnPlayer = "RespawnPlayer";
         public const string SetSpectator = "SetSpectator";
-        public const string Freeze = "Freeze";
-        public const string UnFreeze = "UnFreeze";
         public const string TeamWonRound = "TeamWonRound";
         public const string TeamWonGame = "TeamWonGame";
         public const string GameTie = "GameTie";
         public const string Fusion5vs5Started = "Fusion5vs5Started";
         public const string Fusion5vs5Aborted = "Fusion5vs5Aborted";
         public const string Fusion5vs5Over = "Fusion5vs5Over";
-        public const string NewGameState = "NewGameState";
         public const string PlayerLeft = "PlayerLeft";
-        public const string PlayerSpectates = "PlayerSpectates";
-        public const string SpawnPointAssigned = "SpawnPointAssigned";
         public const string BuyTimeOver = "BuyTimeOver";
         public const string BuyTimeStart = "BuyTimeStart";
     }
@@ -72,6 +74,18 @@ public static class Commons
     }
 
     public const string SpectatorAvatar = CommonBarcodes.Avatars.PolyBlank;
+    public static FusionDictionary<string, string> _Metadata { get; set; } = new();
+
+    public static Fusion5vs5GamemodeTeams? GetTeam(PlayerId localId)
+    {
+        Log(localId);
+        if (_Metadata.TryGetValue(GetTeamMemberKey(localId), out string team))
+        {
+            return GetTeamFromValue(team);
+        }
+
+        return null;
+    }
 
     public static string GetTeamMemberKey(PlayerId id)
     {
@@ -85,10 +99,21 @@ public static class Commons
         return $"{Metadata.TeamScoreKey}.{team.ToString()}";
     }
 
-    public static Fusion5vs5GamemodeTeams GetTeamFromValue(string value)
+    public static Fusion5vs5GamemodeTeams? GetTeamFromValue(string value)
     {
         Log(value);
-        return (Fusion5vs5GamemodeTeams)Enum.Parse(typeof(Fusion5vs5GamemodeTeams), value);
+        try
+        {
+            return (Fusion5vs5GamemodeTeams)Enum.Parse(typeof(Fusion5vs5GamemodeTeams), value);
+        }
+        catch (Exception e)
+        {
+#if DEBUG
+            MelonLogger.Warning(
+                $"Tried to parse an enum of type {nameof(Fusion5vs5GamemodeTeams)} with value \"{value}\" in GetTeamFromValue()!\n{e}");
+#endif
+            return null;
+        }
     }
 
     public static string GetPlayerKillsKey(PlayerId killer)
@@ -121,36 +146,132 @@ public static class Commons
             }
         }
 
+        MelonLogger.Warning($"Could not find player with LongId {player} in GetPlayerFromValue()!");
         return null;
     }
 
-    public static int GetPlayerKills(FusionDictionary<string, string> metadata, PlayerId killer)
+    public static int GetPlayerKills(PlayerId killer)
     {
-        Log(metadata, killer);
-        metadata.TryGetValue(GetPlayerKillsKey(killer), out string killerScore);
+        Log(killer);
+        _Metadata.TryGetValue(GetPlayerKillsKey(killer), out string killerScore);
         return int.Parse(killerScore);
     }
 
-    public static int GetPlayerDeaths(FusionDictionary<string, string> metadata, PlayerId killed)
+    public static int GetPlayerDeaths(PlayerId killed)
     {
-        Log(metadata, killed);
-        metadata.TryGetValue(GetPlayerDeathsKey(killed), out string deathScore);
+        Log(killed);
+        _Metadata.TryGetValue(GetPlayerDeathsKey(killed), out string deathScore);
         return int.Parse(deathScore);
     }
 
-    public static int GetRoundNumber(FusionDictionary<string, string> metadata)
+    public static int GetRoundNumber()
     {
-        Log(metadata);
-        metadata.TryGetValue(Metadata.RoundNumberKey, out string roundNumber);
+        Log();
+        _Metadata.TryGetValue(Metadata.RoundNumberKey, out string roundNumber);
         return int.Parse(roundNumber);
+    }
+
+    public static GameStates? GetGameStateFromValue(string value)
+    {
+        Log(value);
+        try
+        {
+            return (GameStates)Enum.Parse(typeof(GameStates), value);
+        }
+        catch (Exception e)
+        {
+            MelonLogger.Warning(
+                $"Tried to parse an enum of type {nameof(GameStates)} with value \"{value}\" in GetGameStateFromValue()!\n{e}");
+            return null;
+        }
+    }
+
+    public static GameStates? GetGameState()
+    {
+        Log();
+        if (_Metadata.TryGetValue(Metadata.GameStateKey, out string gameState))
+        {
+            return GetGameStateFromValue(gameState);
+        }
+
+        MelonLogger.Warning(
+            $"Could not find a GameState inside of Metadata dictionary.");
+        return null;
+    }
+
+    public static SerializedTransform? GetSpawnPointFromValue(string value)
+    {
+        Log(value);
+        try
+        {
+            string[] split = value.Split(',');
+            Vector3 pos = new Vector3(float.Parse(split[0]), float.Parse(split[1]), float.Parse(split[2]));
+            UnityEngine.Vector3 rot =
+                new UnityEngine.Vector3(float.Parse(split[3]), float.Parse(split[4]), float.Parse(split[5]));
+            SerializedTransform spawnPoint = new SerializedTransform
+            {
+                position = pos,
+                rotation = UnityEngine.Quaternion.Euler(rot).ToSystemQuaternion()
+            };
+            return spawnPoint;
+        }
+        catch (Exception e)
+        {
+            MelonLogger.Warning(
+                $"Could not convert {value} to a {nameof(SerializedTransform)} in GetSpawnPointFromValue()!\n{e}");
+            return null;
+        }
+    }
+
+    public static SerializedTransform? GetSpawnPoint(PlayerId player)
+    {
+        Log(player);
+        if (_Metadata.TryGetValue(GetSpawnPointKey(player), out string spawnPointRaw))
+        {
+            return GetSpawnPointFromValue(spawnPointRaw);
+        }
+
+        return null;
+    }
+
+    public static string GetSpawnPointKey(PlayerId player)
+    {
+        Log(player);
+        return $"{Metadata.SpawnPointKey}.{player.LongId}";
+    }
+
+    public static string GetPlayerFrozenKey(PlayerId player)
+    {
+        Log(player);
+        return $"{Metadata.PlayerFrozenKey}.{player.LongId}";
+    }
+
+    public static bool? IsPlayerFrozen(PlayerId player)
+    {
+        Log(player);
+        if (_Metadata.TryGetValue(GetPlayerFrozenKey(player), out string frozen))
+        {
+            try
+            {
+                return bool.Parse(frozen);
+            }
+            catch (Exception e)
+            {
+                MelonLogger.Warning(
+                    $"Could not convert {frozen} to a {nameof(SerializedTransform)} in GetSpawnPointFromValue()!\n{e}");
+                return null;
+            }
+        }
+
+        return null;
     }
 
     public static void RotateGunPerpendicular(Gun gun, SerializedTransform forwardTransform)
     {
-            
     }
-        
-    public static StringBuilder builder = new();
+
+    private static StringBuilder builder = new();
+    private static int threadNameCounter;
 
     public static void Log(params object[] parameters)
     {
@@ -169,7 +290,17 @@ public static class Commons
             builder.Append(formattedTime);
             builder.Append("\t");
 
-            builder.Append(method.DeclaringType?.FullName + " ");
+            string? threadName = Thread.CurrentThread.Name;
+            if (threadName == null)
+            {
+                threadName = $"[Thread {threadNameCounter++}]";
+                Thread.CurrentThread.Name = threadName;
+            }
+
+            builder.Append(threadName);
+            builder.Append("\t");
+
+            builder.Append(method.DeclaringType?.FullName + ".");
             int i = 0;
             builder.Append(method.Name);
             if (method.GetParameters().Length > 0)
@@ -227,7 +358,18 @@ public static class Commons
         }
         catch (Exception e)
         {
-            MelonLogger.Error($"Exception during Log(): {e}");
+            builder.Append("\n");
+            StackFrame frame = new StackFrame(1);
+            MethodBase method = frame.GetMethod();
+            if (method != null)
+            {
+                string name = $"{method.DeclaringType?.FullName}.{method.Name}";
+                MelonLogger.Warning($"Exception during Log() after {name}: {e}");
+            }
+            else
+            {
+                MelonLogger.Warning($"Exception during Log(): {e}");
+            }
         }
 #endif
     }

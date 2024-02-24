@@ -1,6 +1,8 @@
 ﻿using System;
 using SLZ.UI;
+using TriangleNet;
 using static Fusion5vs5Gamemode.Utilities.RadialMenu;
+using static Fusion5vs5Gamemode.Shared.Commons;
 
 namespace Fusion5vs5Gamemode.Client;
 
@@ -18,6 +20,7 @@ public static class TeamSelectionMenu
 
     static TeamSelectionMenu()
     {
+        Log();
         TeamsMenu = new RadialSubMenu("Teams", PageItem.Directions.NORTH);
         RadialMenuItem attackers = new RadialMenuItem("Attackers", PageItem.Directions.EAST,
             AttackersSelected);
@@ -32,26 +35,31 @@ public static class TeamSelectionMenu
 
     public static void AddTeamsMenu()
     {
+        Log();
         AddRootMenu(TeamsMenu);
     }
 
     public static void RemoveTeamsMenu()
     {
+        Log();
         RemoveRootMenu(TeamsMenu);
     }
 
     private static void AttackersSelected()
     {
+        Log();
         OnAttackersSelected?.Invoke();
     }
 
     private static void DefendersSelected()
     {
+        Log();
         OnDefendersSelected?.Invoke();
     }
 
     private static void SpectatorsSelected()
     {
+        Log();
         OnSpectatorsSelected?.Invoke();
     }
 }

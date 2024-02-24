@@ -34,13 +34,16 @@ public class RadialMenu
     {
         PopUpMenuViewPatches.OnPopUpMenuActivate += OnPopUpMenuActivate;
         PopUpMenuViewPatches.OnPopUpMenuDeactivate += OnPopUpMenuDeacivate;
-        Hooking.OnLevelInitialized += EmptyLists;
+        Hooking.OnLevelInitialized += Reset;
     }
 
-    private static void EmptyLists(LevelInfo info)
+    private static void Reset(LevelInfo info)
     {
-        RootPageBackup.Clear();
+        IsInRootLevel = true;
+        IsActive = false;
+        CurrentCustomSubMenu = null;
         RootMenusAsPageItems.Clear();
+        RootPageBackup.Clear();
     }
 
     private static void OnPopUpMenuActivate(Transform headTransform, Transform rootTransform,

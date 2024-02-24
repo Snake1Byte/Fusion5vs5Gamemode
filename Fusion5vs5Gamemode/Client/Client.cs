@@ -32,7 +32,7 @@ namespace Fusion5vs5Gamemode.Client;
 
 public class Client : Gamemode
 {
-    public override string GamemodeCategory => "Snake1Byte's Gamemodes";
+    public override string GamemodeCategory => "Snake1Byte";
 
     public override string GamemodeName => "5 vs 5";
 
@@ -72,14 +72,8 @@ public class Client : Gamemode
     private string? _CounterTerroristTeamName;
     private string? _TerroristTeamName;
 
-    private Fusion5vs5GamemodeTeams? _LocalTeam;
-    private SerializedTransform? _LocalSpawnPoint;
     private float? _LocalPlayerVelocity;
     private string? _LastLocalAvatar;
-    private bool _LocalPlayerFrozen;
-
-
-    private GameStates? _State;
 
     private MenuCategory? _Menu;
     private IntElement? _MaxRoundsSetting;
@@ -210,6 +204,7 @@ public class Client : Gamemode
         Log();
         base.OnStartGamemode();
         MelonLogger.Msg("5vs5 Mode: OnStartGamemode Called.");
+        Commons._Metadata = Metadata;
         _Menu!.Elements.RemoveInstance(_EnableHalfTimeSetting);
         _Menu.Elements.RemoveInstance(_MaxRoundsSetting);
 
@@ -285,7 +280,7 @@ public class Client : Gamemode
         if (NetworkInfo.IsServer)
         {
             Server = new Server.Server(
-                new ServerOperationsImpl(this),
+                new FusionServerOperationsImpl(this),
                 _DefendingTeam.Value,
                 counterTerroristSpawnPoints,
                 terroristSpawnPoints,
@@ -316,7 +311,6 @@ public class Client : Gamemode
         RigManager rm = RigData.RigReferences.RigManager;
         rm.SwapAvatarCrate(_LastLocalAvatar, true);
         UnFreeze();
-        _LocalTeam = null;
         _IsBuyTime = false;
 
         if (NetworkInfo.IsServer && Server != null)
@@ -359,7 +353,6 @@ public class Client : Gamemode
         _CounterTerroristTeamName = default;
         _TerroristTeamName = default;
         _LastLocalAvatar = default;
-        _State = GameStates.Unknown;
         lock (_FreezeLock)
         {
             _LocalPlayerVelocity = default;
@@ -429,7 +422,7 @@ public class Client : Gamemode
         base.OnMetadataChanged(key, value);
 
 #if DEBUG
-        MelonLogger.Msg($"5vs5: OnMetadataChanged called: {key} {value}");
+        MelonLogger.Msg($"OnMetadataChanged(): {key} {value}");
         UpdateDebugText();
 #endif
 
@@ -438,14 +431,63 @@ public class Client : Gamemode
             string playerRaw = key.Split('.')[2];
             PlayerId? player = GetPlayerFromValue(playerRaw);
             if (player == null) return;
-            Fusion5vs5GamemodeTeams teamFromValue = GetTeamFromValue(value);
-            TeamRepresentation team = GetTeamRepresentation(teamFromValue);
+            Fusion5vs5GamemodeTeams? teamFromValue = GetTeamFromValue(value);
+            if (teamFromValue == null) return;
+            TeamRepresentation team = GetTeamRepresentation(teamFromValue.Value);
             OnTeamChanged(player, team);
         }
         else if (key.Equals(Commons.Metadata.RoundNumberKey))
         {
             int newScore = int.Parse(value);
             OnRoundNumberChanged(newScore);
+        }
+        else if (key.StartsWith(Commons.Metadata.GameStateKey))
+        {
+            GameStates? state = GetGameStateFromValue(value);
+            if (state == null) return;
+            OnStateChanged(state.Value);
+        }
+        else if (key.StartsWith(Commons.Metadata.SpawnPointKey))
+        {
+            string playerRaw = key.Split('.')[2];
+            PlayerId? player = GetPlayerFromValue(playerRaw);
+            if (player == null) return;
+            if (player.IsSelf)
+            {
+                SerializedTransform? transform = GetSpawnPointFromValue(value);
+                if (transform == null) return;
+                SetFusionSpawnPoint(transform.Value.position.ToUnityVector3(),
+                    transform.Value.rotation.ToUnityQuaternion().eulerAngles);
+            }
+        }
+        else if (key.StartsWith(Commons.Metadata.PlayerFrozenKey))
+        {
+            string playerRaw = key.Split('.')[2];
+            PlayerId? player = GetPlayerFromValue(playerRaw);
+            if (player == null) return;
+            if (player.IsSelf)
+            {
+                bool frozen = bool.Parse(value);
+                if (frozen)
+                {
+                    Freeze(true);
+                }
+                else
+                {
+                    UnFreeze(true);
+                }
+            }
+        }
+    }
+
+    protected override void OnMetadataRemoved(string key)
+    {
+        if (key.StartsWith(Commons.Metadata.TeamKey))
+        {
+            string playerRaw = key.Split('.')[2];
+            PlayerId? player = GetPlayerFromValue(playerRaw);
+            if (player == null) return;
+            OnPlayerJoinedSpectators(player);
         }
     }
 
@@ -461,7 +503,7 @@ public class Client : Gamemode
             if (killer == null || killed == null) return;
             killer.TryGetDisplayName(out string killerName);
             killed.TryGetDisplayName(out string killedName);
-            if (killed.IsSelf && _State != GameStates.Warmup)
+            if (killed.IsSelf && GetGameState() != GameStates.Warmup)
             {
                 RigManager rm = RigData.RigReferences.RigManager;
                 SetFusionSpawnPoint(rm.physicsRig.m_pelvis);
@@ -475,7 +517,7 @@ public class Client : Gamemode
             PlayerId? player = GetPlayerFromValue(playerRaw);
             if (player == null) return;
             player.TryGetDisplayName(out string playerName);
-            if (player.IsSelf && _State != GameStates.Warmup)
+            if (player.IsSelf && GetGameState() != GameStates.Warmup)
             {
                 RigManager rm = RigData.RigReferences.RigManager;
                 SetFusionSpawnPoint(rm.physicsRig.m_pelvis);
@@ -534,36 +576,18 @@ public class Client : Gamemode
                 SetSpectator();
             }
         }
-        else if (eventName.StartsWith(Events.Freeze))
-        {
-            string playerRaw = eventName.Split('.')[1];
-            PlayerId? player = GetPlayerFromValue(playerRaw);
-            if (player == null) return;
-            if (player.IsSelf)
-            {
-                Freeze();
-            }
-        }
-        else if (eventName.StartsWith(Events.UnFreeze))
-        {
-            string playerRaw = eventName.Split('.')[1];
-            PlayerId? player = GetPlayerFromValue(playerRaw);
-            if (player == null) return;
-            if (player.IsSelf)
-            {
-                UnFreeze();
-            }
-        }
         else if (eventName.StartsWith(Events.TeamWonRound))
         {
-            Fusion5vs5GamemodeTeams teamFromValue = GetTeamFromValue(eventName.Split('.')[1]);
-            TeamRepresentation team = GetTeamRepresentation(teamFromValue);
+            Fusion5vs5GamemodeTeams? teamFromValue = GetTeamFromValue(eventName.Split('.')[1]);
+            if (teamFromValue == null) return;
+            TeamRepresentation team = GetTeamRepresentation(teamFromValue.Value);
             OnTeamWonRound(team);
         }
         else if (eventName.StartsWith(Events.TeamWonGame))
         {
-            Fusion5vs5GamemodeTeams teamFromValue = GetTeamFromValue(eventName.Split('.')[1]);
-            TeamRepresentation team = GetTeamRepresentation(teamFromValue);
+            Fusion5vs5GamemodeTeams? teamFromValue = GetTeamFromValue(eventName.Split('.')[1]);
+            if (teamFromValue == null) return;
+            TeamRepresentation team = GetTeamRepresentation(teamFromValue.Value);
             OnTeamWonGame(team);
         }
         else if (eventName.Equals(Events.GameTie))
@@ -582,56 +606,12 @@ public class Client : Gamemode
         {
             StopGamemode();
         }
-        else if (eventName.StartsWith(Events.NewGameState))
-        {
-            string stateRaw = eventName.Split('.')[1];
-            GameStates newState = (GameStates)Enum.Parse(typeof(GameStates), stateRaw);
-            OnStateChanged(newState);
-        }
         else if (eventName.StartsWith(Events.PlayerLeft))
         {
             string playerRaw = eventName.Split('.')[1];
-            string teamRaw = eventName.Split('.')[2];
             PlayerId? player = GetPlayerFromValue(playerRaw);
             if (player == null) return;
-            Fusion5vs5GamemodeTeams team = GetTeamFromValue(teamRaw);
-
-            OnTeamRemoved(player, team);
-        }
-        else if (eventName.StartsWith(Events.PlayerSpectates))
-        {
-            string playerRaw = eventName.Split('.')[1];
-            PlayerId? player = GetPlayerFromValue(playerRaw);
-            if (player == null) return;
-            if (player.IsSelf)
-            {
-                _LocalTeam = null;
-                UnFreeze();
-                Kill();
-                Notify("Joined Spectators", "You can join a team from <UI component>"); // TODO 
-            }
-        }
-        else if (eventName.StartsWith(Events.SpawnPointAssigned))
-        {
-            string playerRaw = eventName.Split('.')[1];
-            PlayerId? player = GetPlayerFromValue(playerRaw);
-            if (player == null) return;
-            if (player.IsSelf)
-            {
-                Regex regex = new Regex(Regex.Escape($"SpawnPointAssigned.{playerRaw}."));
-                string transformRaw = regex.Replace(eventName, "", 1);
-                string[] split = transformRaw.Split(',');
-                Vector3 pos = new Vector3(float.Parse(split[0]), float.Parse(split[1]), float.Parse(split[2]));
-                Vector3 rot = new Vector3(float.Parse(split[3]), float.Parse(split[4]), float.Parse(split[5]));
-                SerializedTransform spawnPoint = new SerializedTransform
-                {
-                    position = pos.ToSystemVector3(),
-                    rotation = Quaternion.Euler(rot).ToSystemQuaternion()
-                };
-                _LocalSpawnPoint = spawnPoint;
-
-                SetFusionSpawnPoint(pos, rot);
-            }
+            OnPlayerLeft(player);
         }
         else if (eventName.Equals(Events.BuyTimeOver))
         {
@@ -667,7 +647,7 @@ public class Client : Gamemode
 
     private void OnStateChanged(GameStates state)
     {
-        Log(_State!);
+        Log(GetGameState()!);
         MelonLogger.Msg($"New game state {state}.");
 
         _UITimer?.Stop();
@@ -675,9 +655,7 @@ public class Client : Gamemode
         _CurrentTimeLimit = TimeLimits[state];
         _UITimer?.Start();
 
-        _State = state;
-
-        switch (_State)
+        switch (state)
         {
             case GameStates.Warmup:
                 StartWarmupPhase();
@@ -725,11 +703,13 @@ public class Client : Gamemode
     {
         Log();
 
-        if (_LocalTeam == null)
+        Fusion5vs5GamemodeTeams? localTeam = GetTeam(PlayerIdManager.LocalId);
+
+        if (localTeam == null)
         {
             Notify("Round start", "You are spectating.");
         }
-        else if (_LocalTeam == _DefendingTeam)
+        else if (localTeam == _DefendingTeam)
         {
             // TODO change notification
             Notify("Round start", "Do defending team stuff...");
@@ -752,13 +732,15 @@ public class Client : Gamemode
     private void StartMatchHalfPhase()
     {
         Log();
-        if (_LocalTeam == null)
+
+        Fusion5vs5GamemodeTeams? localTeam = GetTeam(PlayerIdManager.LocalId);
+        if (localTeam == null)
         {
             Notify("Switching sides", "");
         }
         else
         {
-            Fusion5vs5GamemodeTeams team = _LocalTeam == Fusion5vs5GamemodeTeams.Terrorists
+            Fusion5vs5GamemodeTeams team = localTeam.Value == Fusion5vs5GamemodeTeams.Terrorists
                 ? Fusion5vs5GamemodeTeams.CounterTerrorists
                 : Fusion5vs5GamemodeTeams.Terrorists;
             Notify("Switching sides", $"Switching to team {GetTeamDisplayName(team)}.");
@@ -816,8 +798,6 @@ public class Client : Gamemode
         Log(player, team);
         if (player.IsSelf)
         {
-            _LocalTeam = team.Team;
-
             if (IsInsideBuyZone())
             {
                 OnBuyZoneEntered();
@@ -843,11 +823,18 @@ public class Client : Gamemode
         }
     }
 
-    private void OnTeamRemoved(PlayerId player, Fusion5vs5GamemodeTeams team)
+    private void OnPlayerLeft(PlayerId player)
     {
-        Log(player, team);
+        Log(player);
         // TODO Implement UI changes
     }
+
+    private void OnPlayerJoinedSpectators(PlayerId player)
+    {
+        Log(player);
+        // TODO Implement UI changes
+    }
+
 
     private void OnTeamWonRound(TeamRepresentation team)
     {
@@ -856,15 +843,17 @@ public class Client : Gamemode
         Notify("Round over.", $"Team {team.DisplayName} wins.");
 
         Metadata.TryGetValue(GetTeamScoreKey(team.Team), out string value);
+        Fusion5vs5GamemodeTeams? localTeam = GetTeam(PlayerIdManager.LocalId);
+        if (localTeam == null) return;
         int totalScore = int.Parse(value);
         if (team.Team == Fusion5vs5GamemodeTeams.CounterTerrorists)
         {
             SDKIntegration.InvokeCounterTerroristTeamScored(totalScore,
-                _LocalTeam == Fusion5vs5GamemodeTeams.CounterTerrorists);
+                localTeam.Value == Fusion5vs5GamemodeTeams.CounterTerrorists);
         }
         else
         {
-            SDKIntegration.InvokeTerroristTeamScored(totalScore, _LocalTeam == Fusion5vs5GamemodeTeams.Terrorists);
+            SDKIntegration.InvokeTerroristTeamScored(totalScore, localTeam.Value == Fusion5vs5GamemodeTeams.Terrorists);
         }
     }
 
@@ -885,12 +874,6 @@ public class Client : Gamemode
     private void OnSwapTeams()
     {
         Log();
-        if (_LocalTeam != null)
-        {
-            _LocalTeam = _LocalTeam == Fusion5vs5GamemodeTeams.Terrorists
-                ? Fusion5vs5GamemodeTeams.CounterTerrorists
-                : Fusion5vs5GamemodeTeams.Terrorists;
-        }
         // TODO Implement UI changes
     }
 
@@ -960,7 +943,7 @@ public class Client : Gamemode
         RigManager rm = RigData.RigReferences.RigManager;
         rm.SwapAvatarCrate(_LastLocalAvatar, true, (Action<bool>)(_ =>
         {
-            Freeze();
+            Freeze(true);
             Respawn();
         }));
     }
@@ -995,9 +978,10 @@ public class Client : Gamemode
     private void Respawn()
     {
         Log();
-        if (_LocalSpawnPoint == null) return;
-        FusionPlayer.Teleport(_LocalSpawnPoint.Value.position.ToUnityVector3(),
-            _LocalSpawnPoint.Value.rotation.ToUnityQuaternion().eulerAngles);
+        SerializedTransform? localSpawnPoint = GetSpawnPoint(PlayerIdManager.LocalId);
+        if (localSpawnPoint == null) return;
+        FusionPlayer.Teleport(localSpawnPoint.Value.position.ToUnityVector3(),
+            localSpawnPoint.Value.rotation.ToUnityQuaternion().eulerAngles);
     }
 
     /// <summary>
@@ -1055,55 +1039,56 @@ public class Client : Gamemode
         FusionPlayer.SetSpawnPoints(go.transform);
     }
 
-    private void Freeze()
+    private void Freeze(bool force = false)
     {
-        Log();
+        Log(force);
         lock (_FreezeLock)
         {
-            if (!_LocalPlayerFrozen)
-            {
-                _LocalPlayerFrozen = true;
+            bool? localPlayerFrozen = IsPlayerFrozen(PlayerIdManager.LocalId);
+            if ((!localPlayerFrozen.HasValue || localPlayerFrozen.Value) && !force) return;
 
-                MelonLogger.Msg(
-                    $"1: Current avatar on Freeze: {RigData.RigReferences.RigManager.AvatarCrate._barcode} with _LocalPlayerVelocity: {_LocalPlayerVelocity}");
-                RemapRig rig = RigData.RigReferences.RigManager.remapHeptaRig;
-                rig.jumpEnabled = false;
-                _LocalPlayerVelocity = rig.maxVelocity;
-                rig.maxVelocity = 0.001f;
-                MelonLogger.Msg(
-                    $"2: Current avatar on Freeze: {RigData.RigReferences.RigManager.AvatarCrate._barcode} with _LocalPlayerVelocity: {_LocalPlayerVelocity}");
-            }
+#if DEBUG
+            MelonLogger.Msg(
+                $"1: Current avatar on Freeze: {RigData.RigReferences.RigManager.AvatarCrate._barcode} with _LocalPlayerVelocity: {_LocalPlayerVelocity}");
+#endif
+            RemapRig rig = RigData.RigReferences.RigManager.remapHeptaRig;
+            rig.jumpEnabled = false;
+            _LocalPlayerVelocity = rig.maxVelocity == 0.001f ? _LocalPlayerVelocity : rig.maxVelocity;
+            rig.maxVelocity = 0.001f;
+#if DEBUG
+            MelonLogger.Msg(
+                $"2: Current avatar on Freeze: {RigData.RigReferences.RigManager.AvatarCrate._barcode} with _LocalPlayerVelocity: {_LocalPlayerVelocity}");
+#endif
         }
     }
 
-    private void UnFreeze()
+    private void UnFreeze(bool force = false)
     {
-        Log();
+        Log(force);
         lock (_FreezeLock)
         {
-            if (_LocalPlayerFrozen)
+            bool? localPlayerFrozen = IsPlayerFrozen(PlayerIdManager.LocalId);
+            if ((!localPlayerFrozen.HasValue || !localPlayerFrozen.Value) && !force) return;
+#if DEBUG
+            MelonLogger.Msg(
+                $"1: Current avatar on UnFreeze(): {RigData.RigReferences.RigManager.AvatarCrate._barcode} with _LocalPlayerVelocity: {_LocalPlayerVelocity}");
+#endif
+            if (_LocalPlayerVelocity == null)
             {
-                _LocalPlayerFrozen = false;
-
-                MelonLogger.Msg(
-                    $"1: Current avatar on UnFreeze(): {RigData.RigReferences.RigManager.AvatarCrate._barcode} with _LocalPlayerVelocity: {_LocalPlayerVelocity}");
-
-                if (_LocalPlayerVelocity == null)
-                {
-                    RigManager rm = RigData.RigReferences.RigManager;
-                    rm.SwapAvatarCrate(rm._avatarCrate._barcode);
-                }
-                else
-                {
-                    RemapRig rig = RigData.RigReferences.RigManager.remapHeptaRig;
-                    rig.maxVelocity = _LocalPlayerVelocity.Value;
-                    rig.jumpEnabled = true;
-                }
-
-
-                MelonLogger.Msg(
-                    $"2: Current avatar on UnFreeze(): {RigData.RigReferences.RigManager.AvatarCrate._barcode} with _LocalPlayerVelocity: {_LocalPlayerVelocity}");
+                RigManager rm = RigData.RigReferences.RigManager;
+                rm.SwapAvatarCrate(rm._avatarCrate._barcode);
             }
+            else
+            {
+                RemapRig rig = RigData.RigReferences.RigManager.remapHeptaRig;
+                rig.maxVelocity = _LocalPlayerVelocity.Value;
+                rig.jumpEnabled = true;
+            }
+
+#if DEBUG
+            MelonLogger.Msg(
+                $"2: Current avatar on UnFreeze(): {RigData.RigReferences.RigManager.AvatarCrate._barcode} with _LocalPlayerVelocity: {_LocalPlayerVelocity}");
+#endif
         }
     }
 
@@ -1111,17 +1096,18 @@ public class Client : Gamemode
     private bool IsInsideBuyZone()
     {
         Log();
-        if (!_LocalTeam.HasValue)
+        Fusion5vs5GamemodeTeams? localTeam = GetTeam(PlayerIdManager.LocalId);
+        if (!localTeam.HasValue)
         {
             return false;
         }
 
-        if (_LocalTeam.Value == Fusion5vs5GamemodeTeams.Terrorists && _InsideTBuyZone)
+        if (localTeam.Value == Fusion5vs5GamemodeTeams.Terrorists && _InsideTBuyZone)
         {
             return true;
         }
 
-        if (_LocalTeam.Value == Fusion5vs5GamemodeTeams.CounterTerrorists && _InsideCTBuyZone)
+        if (localTeam.Value == Fusion5vs5GamemodeTeams.CounterTerrorists && _InsideCTBuyZone)
         {
             return true;
         }
@@ -1172,10 +1158,11 @@ public class Client : Gamemode
             tTrigger.obj_SpecificTrigger = tTrigger.gameObject;
         }
 
+        Fusion5vs5GamemodeTeams? localTeam = GetTeam(PlayerIdManager.LocalId);
         if (ctTrigger != null && ctTrigger.GetInstanceID() == obj.GetInstanceID())
         {
             _InsideCTBuyZone = true;
-            if (_LocalTeam == Fusion5vs5GamemodeTeams.CounterTerrorists)
+            if (localTeam.HasValue && localTeam.Value == Fusion5vs5GamemodeTeams.CounterTerrorists)
             {
                 OnBuyZoneEntered();
             }
@@ -1183,7 +1170,7 @@ public class Client : Gamemode
         else if (tTrigger != null && tTrigger.GetInstanceID() == obj.GetInstanceID())
         {
             _InsideTBuyZone = true;
-            if (_LocalTeam == Fusion5vs5GamemodeTeams.Terrorists)
+            if (localTeam.HasValue && localTeam.Value == Fusion5vs5GamemodeTeams.Terrorists)
             {
                 tTrigger.obj_SpecificTrigger = _Descriptor.TerroristBuyZone.gameObject;
                 OnBuyZoneEntered();
@@ -1197,10 +1184,11 @@ public class Client : Gamemode
         if (_Descriptor == null) return;
         TriggerLasers ctTrigger = _Descriptor.CounterTerroristBuyZone.gameObject.GetComponent<TriggerLasers>();
         TriggerLasers tTrigger = _Descriptor.TerroristBuyZone.gameObject.GetComponent<TriggerLasers>();
+        Fusion5vs5GamemodeTeams? localTeam = GetTeam(PlayerIdManager.LocalId);
         if (ctTrigger != null && ctTrigger.GetInstanceID() == obj.GetInstanceID())
         {
             _InsideCTBuyZone = false;
-            if (_LocalTeam == Fusion5vs5GamemodeTeams.CounterTerrorists)
+            if (localTeam.HasValue && localTeam.Value == Fusion5vs5GamemodeTeams.CounterTerrorists)
             {
                 OnBuyZoneExited();
             }
@@ -1210,7 +1198,7 @@ public class Client : Gamemode
             if (tTrigger != null && tTrigger.GetInstanceID() == obj.GetInstanceID())
             {
                 _InsideTBuyZone = false;
-                if (_LocalTeam == Fusion5vs5GamemodeTeams.Terrorists)
+                if (localTeam.HasValue && localTeam.Value == Fusion5vs5GamemodeTeams.Terrorists)
                 {
                     OnBuyZoneExited();
                 }

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Timers;
-using Fusion5vs5Gamemode.Client;
 using Fusion5vs5Gamemode.SDK;
 using Fusion5vs5Gamemode.Shared;
 using Fusion5vs5Gamemode.Utilities;
@@ -28,7 +27,7 @@ namespace Fusion5vs5Gamemode.Server;
 public class Server : IDisposable
 {
     // Settings
-    private IServerOperations Operations { get; }
+    private IFusionServerOperations Operations { get; }
     private int MaxRounds { get; }
     private bool EnableHalftime { get; }
     private bool EnableLateJoining { get; }
@@ -60,7 +59,7 @@ public class Server : IDisposable
     private readonly Dictionary<PlayerId, PlayerStates> _PlayerStatesDict;
     private readonly List<PlayerId> _PlayersInBuyZone = new();
 
-    public Server(IServerOperations operations,
+    public Server(IFusionServerOperations operations,
         Fusion5vs5GamemodeTeams defendingTeam,
         List<SerializedTransform> counterTerroristSpawnPoints,
         List<SerializedTransform> terroristSpawnPoints,
@@ -146,26 +145,30 @@ public class Server : IDisposable
     private void OnPlayerJoin(PlayerId playerId)
     {
         Log(playerId);
+#if DEBUG
         MelonLogger.Msg("5vs5 Mode: OnPlayerJoin Called.");
-
+#endif
         InitializePlayer(playerId);
     }
 
     private void OnPlayerLeave(PlayerId playerId)
     {
         Log(playerId);
+#if DEBUG
         MelonLogger.Msg("5vs5 Mode: OnPlayerLeave Called.");
+#endif
 
         Team? team = GetTeam(playerId);
         if (team == null) return;
         team.Players.Remove(playerId);
         _PlayerStatesDict.Remove(playerId);
-        Operations.InvokeTrigger($"{Events.PlayerLeft}.{playerId.LongId}.{team.TeamName}");
+        Operations.InvokeTrigger($"{Events.PlayerLeft}.{playerId.LongId}");
     }
 
     private void OnPlayerAction(PlayerId playerId, PlayerActionType type, PlayerId otherPlayer)
     {
         Log(playerId, type, otherPlayer);
+#if DEBUG
         try
         {
             playerId.TryGetDisplayName(out string name1);
@@ -178,6 +181,7 @@ public class Server : IDisposable
         {
             MelonLogger.Msg($"5vs5 Mode: OnPlayerAction Called: {type.ToString()}");
         }
+#endif
 
         if (NetworkInfo.IsServer)
         {
@@ -192,6 +196,9 @@ public class Server : IDisposable
             else if (type == PlayerActionType.DEATH)
             {
                 DyingAnimationCompleted(playerId);
+            } else if (type == PlayerActionType.DEALT_DAMAGE_TO_OTHER_PLAYER)
+            {
+                // stuff for player assist
             }
         }
     }
@@ -279,9 +286,10 @@ public class Server : IDisposable
             currentTeam?.Players.Remove(player);
 
             selectedTeam.Players.Add(player);
-            Team? oldTeam = currentTeam;
-            Operations.SetMetadata(GetTeamMemberKey(player), selectedTeam.TeamName);
+            Operations.TrySetMetadata(GetTeamMemberKey(player), selectedTeam.TeamName);
+#if DEBUG
             MelonLogger.Msg($"Player {playerName} switched teams to {selectedTeam.TeamName}");
+#endif
 
             if (_State == GameStates.Warmup)
             {
@@ -333,12 +341,13 @@ public class Server : IDisposable
                 }
             }
 
-            if (oldTeam != null) DetermineTeamWon(player, oldTeam);
+            DetermineTeamWon(player, selectedTeam);
         }
     }
-    
+
     private void SpectatorJoinRequest(PlayerId player)
     {
+        Log(player);
         Team? team = GetTeam(player);
         if (team == null) return;
         if (_State is GameStates.MatchHalfPhase or GameStates.MatchEndPhase)
@@ -354,9 +363,15 @@ public class Server : IDisposable
         _SpawnPoints.Remove(player);
         team.Players.Remove(player);
         _PlayersInBuyZone.Remove(player);
+        PlayerStates oldState = GetPlayerState(player);
         SetPlayerState(player, PlayerStates.Spectator);
         DetermineTeamWon(player, team);
-        Operations.InvokeTrigger($"{Events.PlayerSpectates}.{player.LongId}");
+        Operations.TryRemoveMetadata(Commons.GetTeamMemberKey(player));
+        UnFreezePlayer(player);
+        if (oldState == PlayerStates.Alive)
+        {
+            KillPlayer(player);
+        }
     }
 
     private SerializedTransform? AssignSpawnPoint(PlayerId player, List<SerializedTransform> spawnPoints)
@@ -371,8 +386,8 @@ public class Server : IDisposable
                 _SpawnPoints.Add(player, spawnPoint);
                 Vector3 pos = spawnPoint.position.ToUnityVector3();
                 Vector3 rot = spawnPoint.rotation.ToUnityQuaternion().eulerAngles;
-                Operations.InvokeTrigger(
-                    $"{Events.SpawnPointAssigned}.{player.LongId}.{pos.x},{pos.y},{pos.z},{rot.x},{rot.y},{rot.z}");
+                Operations.TrySetMetadata(Commons.GetSpawnPointKey(player),
+                    $"{pos.x},{pos.y},{pos.z},{rot.x},{rot.y},{rot.z}");
                 return spawnPoint;
             }
         }
@@ -409,20 +424,43 @@ public class Server : IDisposable
         if (!_TeamScoreIncremented)
         {
             _TeamScoreIncremented = true;
-            SetTeamScore(team, GetTeamScore(team) + 1);
+            int? score = GetTeamScore(team);
+            if (score == null)
+            {
+                MelonLogger.Warning($"Did not increment score since the team score for {team.TeamName} was null!");
+                return;
+            }
+
+            SetTeamScore(team, score.Value + 1);
         }
     }
 
     private void SetTeamScore(Team team, int teamScore)
     {
         Log(team, teamScore);
-        Operations.SetMetadata(GetTeamScoreKey(Commons.GetTeamFromValue(team.TeamName)), teamScore.ToString());
+        Fusion5vs5GamemodeTeams? teamEnum = Commons.GetTeamFromValue(team.TeamName);
+        if (teamEnum == null)
+        {
+            MelonLogger.Warning(
+                $"Did not set team score since Commons.GetTeamFromValue() returned null instead of an enum!");
+            return;
+        }
+
+        Operations.TrySetMetadata(GetTeamScoreKey(teamEnum.Value), teamScore.ToString());
     }
 
-    private int GetTeamScore(Team team)
+    private int? GetTeamScore(Team team)
     {
         Log(team);
-        string teamScore = Operations.GetMetadata(GetTeamScoreKey(Commons.GetTeamFromValue(team.TeamName)));
+        Fusion5vs5GamemodeTeams? teamEnum = Commons.GetTeamFromValue(team.TeamName);
+        if (teamEnum == null)
+        {
+            MelonLogger.Warning(
+                $"Did not get team score since Commons.GetTeamFromValue() returned null instead of an enum!");
+            return null;
+        }
+
+        Operations.TryGetMetadata(GetTeamScoreKey(teamEnum.Value), out string teamScore);
         return int.Parse(teamScore);
     }
 
@@ -463,9 +501,15 @@ public class Server : IDisposable
         CounterTerroristTeam.Players.AddRange(toTransfer);
 
         // Transfer points
-        int score = GetTeamScore(CounterTerroristTeam);
-        SetTeamScore(CounterTerroristTeam, GetTeamScore(TerroristTeam));
-        SetTeamScore(TerroristTeam, score);
+        int? score = GetTeamScore(CounterTerroristTeam);
+        if (score == null)
+        {
+            MelonLogger.Warning($"Did not swap teams since GetTeamScore() returned null instead of an int!");
+            return;
+        }
+
+        SetTeamScore(CounterTerroristTeam, score.Value);
+        SetTeamScore(TerroristTeam, score.Value);
 
         _SpawnPoints.Clear();
         foreach (var team in _Teams)
@@ -507,8 +551,8 @@ public class Server : IDisposable
         if (GetPlayerState(killer) != PlayerStates.Alive || GetPlayerState(killed) != PlayerStates.Alive)
             return;
 
-        SetPlayerKills(killer, GetPlayerKills(Operations.Metadata, killer) + 1);
-        SetPlayerDeaths(killed, GetPlayerDeaths(Operations.Metadata, killed) + 1);
+        SetPlayerKills(killer, GetPlayerKills(killer) + 1);
+        SetPlayerDeaths(killed, GetPlayerDeaths(killed) + 1);
         SetPlayerState(killed, PlayerStates.Dead);
 
         Operations.InvokeTrigger($"{Events.PlayerKilledPlayer}.{killer.LongId}.{killed.LongId}");
@@ -526,7 +570,7 @@ public class Server : IDisposable
         if (GetPlayerState(playerId) != PlayerStates.Alive)
             return;
 
-        SetPlayerDeaths(playerId, GetPlayerDeaths(Operations.Metadata, playerId) + 1);
+        SetPlayerDeaths(playerId, GetPlayerDeaths(playerId) + 1);
         SetPlayerState(playerId, PlayerStates.Dead);
 
         Operations.InvokeTrigger($"{Events.PlayerSuicide}.{playerId.LongId}");
@@ -541,31 +585,37 @@ public class Server : IDisposable
     {
         Log(playerId);
         if (_State == GameStates.PlayPhase || _State == GameStates.RoundEndPhase)
+        {
             Operations.InvokeTrigger($"{Events.SetSpectator}.{playerId.LongId}");
+        }
+        else
+        {
+            
+        }
     }
 
     private void SetPlayerKills(PlayerId killer, int kills)
     {
         Log(killer, kills);
-        Operations.SetMetadata(GetPlayerKillsKey(killer), kills.ToString());
+        Operations.TrySetMetadata(GetPlayerKillsKey(killer), kills.ToString());
     }
 
     private void SetPlayerDeaths(PlayerId killed, int deaths)
     {
         Log(killed, deaths);
-        Operations.SetMetadata(GetPlayerDeathsKey(killed), deaths.ToString());
+        Operations.TrySetMetadata(GetPlayerDeathsKey(killed), deaths.ToString());
     }
 
     private void SetPlayerAssists(PlayerId assister, int assists)
     {
         Log(assister, assists);
-        Operations.SetMetadata(GetPlayerAssistsKey(assister), assists.ToString());
+        Operations.TrySetMetadata(GetPlayerAssistsKey(assister), assists.ToString());
     }
 
     private int GetPlayerAssists(PlayerId assister)
     {
         Log(assister);
-        string assistsScore = Operations.GetMetadata(GetPlayerAssistsKey(assister));
+        Operations.TryGetMetadata(GetPlayerAssistsKey(assister), out string assistsScore);
         return int.Parse(assistsScore);
     }
 
@@ -600,6 +650,7 @@ public class Server : IDisposable
         Log(player);
         SetPlayerState(player, PlayerStates.Alive);
         Operations.InvokeTrigger($"{Events.ReviveAndFreezePlayer}.{player.LongId}");
+        Operations.TrySetMetadata(GetPlayerFrozenKey(PlayerIdManager.LocalId), true.ToString());
     }
 
     private void KillPlayer(PlayerId player)
@@ -617,13 +668,13 @@ public class Server : IDisposable
     private void FreezePlayer(PlayerId player)
     {
         Log(player);
-        Operations.InvokeTrigger($"{Events.Freeze}.{player.LongId}");
+        Operations.TrySetMetadata(GetPlayerFrozenKey(PlayerIdManager.LocalId), true.ToString());
     }
 
     private void UnFreezePlayer(PlayerId player)
     {
         Log(player);
-        Operations.InvokeTrigger($"{Events.UnFreeze}.{player.LongId}");
+        Operations.TrySetMetadata(GetPlayerFrozenKey(PlayerIdManager.LocalId), false.ToString());
     }
 
     private void FreezeAllPlayers()
@@ -791,11 +842,19 @@ public class Server : IDisposable
                 nextState = GameStates.PlayPhase;
                 break;
             case GameStates.PlayPhase:
+                bool? teamScoreMaxedOut = IsTeamScoreMaxedOut();
+                if (teamScoreMaxedOut == null)
+                {
+                    MelonLogger.Warning(
+                        $"Did not change game state from PlayPhase to the next game state since IsTeamScore() returned null!");
+                    return;
+                }
+
                 if (EnableHalftime && HalfOfRoundsPlayed())
                 {
                     nextState = GameStates.MatchHalfPhase;
                 }
-                else if (IsRoundNumberMaxedOut() || IsTeamScoreMaxedOut())
+                else if (IsRoundNumberMaxedOut() || teamScoreMaxedOut.Value)
                 {
                     nextState = GameStates.MatchEndPhase;
                 }
@@ -830,7 +889,7 @@ public class Server : IDisposable
         _State = nextState;
 
         OnStateChanged(_State);
-        Operations.InvokeTrigger($"{Events.NewGameState}.{nextState.ToString()}");
+        SetGameState(nextState);
     }
 
     private void OnStateChanged(GameStates newState)
@@ -883,8 +942,14 @@ public class Server : IDisposable
             case GameStates.MatchEndPhase:
                 FreezeAllPlayers();
 
-                int tScore = GetTeamScore(TerroristTeam);
-                int cScore = GetTeamScore(CounterTerroristTeam);
+                int? tScore = GetTeamScore(TerroristTeam);
+                int? cScore = GetTeamScore(CounterTerroristTeam);
+                if (tScore == null || cScore == null)
+                {
+                    MelonLogger.Error($"Did not swap teams since GetTeamScore() returned null instead of an int!");
+                    return;
+                }
+
                 if (tScore == cScore)
                 {
                     Operations.InvokeTrigger(Events.GameTie);
@@ -932,34 +997,46 @@ public class Server : IDisposable
         }
     }
 
+    public void SetGameState(GameStates state)
+    {
+        Log(state);
+        Operations.TrySetMetadata(Metadata.GameStateKey, state.ToString());
+    }
+
     private void IncrementRoundNumber()
     {
         Log();
-        SetRoundNumber(GetRoundNumber(Operations.Metadata) + 1);
+        SetRoundNumber(GetRoundNumber() + 1);
     }
 
     private void SetRoundNumber(int i)
     {
         Log(i);
-        Operations.SetMetadata(Metadata.RoundNumberKey, i.ToString());
+        Operations.TrySetMetadata(Metadata.RoundNumberKey, i.ToString());
     }
 
     private bool HalfOfRoundsPlayed()
     {
         Log();
-        string number = Operations.GetMetadata(Metadata.RoundNumberKey);
+        Operations.TryGetMetadata(Metadata.RoundNumberKey, out string number);
         int roundNumber = int.Parse(number);
         return roundNumber == MaxRounds / 2;
     }
 
-    private bool IsTeamScoreMaxedOut()
+    private bool? IsTeamScoreMaxedOut()
     {
         Log();
         int maxTeamScore = MaxRounds / 2 + 1;
 
         foreach (var team in _Teams)
         {
-            int score = GetTeamScore(team);
+            int? score = GetTeamScore(team);
+            if (score == null)
+            {
+                MelonLogger.Warning($"Could not determine IsTeamScoreMaxedOut() GetTeamScore null instead of an int!");
+                return null;
+            }
+
             MelonLogger.Msg($"IsTeamScoreMaxedOut(): {team.TeamName}'s score = {score}");
             if (score == maxTeamScore)
             {
@@ -973,7 +1050,7 @@ public class Server : IDisposable
     private bool IsRoundNumberMaxedOut()
     {
         Log();
-        string number = Operations.GetMetadata(Metadata.RoundNumberKey);
+        Operations.TryGetMetadata(Metadata.RoundNumberKey, out string number);
         int roundNumber = int.Parse(number);
 
         return roundNumber == MaxRounds;
