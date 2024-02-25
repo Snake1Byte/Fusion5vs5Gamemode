@@ -344,7 +344,6 @@ public class Client : Gamemode
 
         BuyMenu.RemoveBuyMenu();
         BuyMenu.OnBuyMenuItemClicked -= OnBuyMenuItemClicked;
-        BuyMenuSpawning.Disable();
 
         TeamSelectionMenu.RemoveTeamsMenu();
         TeamSelectionMenu.OnDefendersSelected -= RequestJoinDefenders;
@@ -413,7 +412,6 @@ public class Client : Gamemode
         TriggerLasersEvents.OnTriggerExited += OnTriggerExited;
 
         BuyMenu.OnBuyMenuItemClicked += OnBuyMenuItemClicked;
-        BuyMenuSpawning.Enable();
 
         TeamSelectionMenu.AddTeamsMenu();
         TeamSelectionMenu.OnDefendersSelected += RequestJoinDefenders;
@@ -631,13 +629,16 @@ public class Client : Gamemode
                 BuyMenu.AddBuyMenu();
             }
         }
-        else if (eventName.Equals(Events.ItemBought))
+        else if (eventName.StartsWith(Events.ItemBought))
         {
             string[] info = eventName.Split('.');
             PlayerId? player = GetPlayerFromValue(info[1]);
             if (player == null) return;
             string barcode = string.Join(".", info.Skip(2));
-            BuyMenuSpawning.OnPlayerBoughtItem(player, barcode);
+            if (player.IsSelf)
+            {
+                BuyMenuSpawning.OnPlayerBoughtItem(player, barcode);
+            }
         }
 
         UpdateDebugText(eventName);

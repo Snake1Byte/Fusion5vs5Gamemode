@@ -1,7 +1,7 @@
-﻿using System.Collections.Concurrent;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using BoneLib;
+using Fusion5vs5Gamemode.Utilities;
 using Fusion5vs5Gamemode.Utilities.HarmonyPatches;
-using Il2CppSystem;
 using LabFusion.Data;
 using LabFusion.Network;
 using LabFusion.Representation;
@@ -24,62 +24,23 @@ public class BuyMenuSpawning
         public byte Owner;
     }
 
-    private static readonly List<SpawnedObject> SpawnQueue = new();
-    private static bool _Enabled = false;
-    private static readonly object EnabledLock = new();
-
-    public static void Enable()
-    {
-        lock (EnabledLock)
-        {
-            if (!_Enabled)
-            {
-                _Enabled = true;
-                SpawnResponseMessagePatches.OnSpawnFinished += PlaceItemInInventory;
-            }
-        }
-    }
-
-    public static void Disable()
-    {
-        lock (EnabledLock)
-        {
-            if (_Enabled)
-            {
-                _Enabled = false;
-                SpawnResponseMessagePatches.OnSpawnFinished -= PlaceItemInInventory;
-                lock (SpawnQueue)
-                {
-                    SpawnQueue.Clear();
-                }
-            }
-        }
-    }
-
     public static void OnPlayerBoughtItem(PlayerId player, string barcode)
     {
-        lock (SpawnQueue)
+        Log(player, barcode);
+        RigReferenceCollection rigReferences = RigData.RigReferences;
+        if (rigReferences == null)
         {
-            SpawnQueue.Add(new SpawnedObject { Barcode = barcode, Owner = player.SmallId });
+            player.TryGetDisplayName(out string name);
+            MelonLogger.Warning(
+                $"Could not buy item since RigReferenceCollection for player {name ?? $"with ID {player.LongId.ToString()}"} could not be found in OnItemBought()!");
+            return;
         }
 
-        if (player.IsSelf)
-        {
-            RigReferenceCollection rigReferences = RigData.RigReferences;
-            if (rigReferences == null)
-            {
-                player.TryGetDisplayName(out string name);
-                MelonLogger.Warning(
-                    $"Could not buy item since RigReferenceCollection for player {name ?? $"with ID {player.LongId.ToString()}"} could not be found in OnItemBought()!");
-                return;
-            }
-
-            RigManager rm = rigReferences.RigManager;
-            Transform headTransform = rm.physicsRig.m_pelvis;
-            SerializedTransform finalTransform = new SerializedTransform(headTransform.position + headTransform.forward,
-                headTransform.rotation);
-            PooleeUtilities.RequestSpawn(barcode, finalTransform, player.SmallId);
-        }
+        RigManager rm = rigReferences.RigManager;
+        Transform headTransform = rm.physicsRig.m_pelvis;
+        SerializedTransform finalTransform = new SerializedTransform(headTransform.position + headTransform.forward,
+            headTransform.rotation);
+        FusionSpawning.RequestSpawn(barcode, finalTransform, player.SmallId, PlaceItemInInventory);
     }
 
     // Runs on every client
@@ -87,26 +48,7 @@ public class BuyMenuSpawning
     {
         Log(owner, spawnedBarcode, spawnedGo);
 
-        lock (SpawnQueue)
-        {
-            SpawnedObject spawnedObject = new SpawnedObject { Barcode = spawnedBarcode, Owner = owner };
-            if (!SpawnQueue.Contains(spawnedObject)) return;
-            SpawnQueue.Remove(spawnedObject);
-        }
-
-        foreach (Pallet pallet in AssetWarehouse.Instance.GetPallets())
-        {
-            if (pallet.Internal)
-            {
-                foreach (var crate in pallet.Crates)
-                {
-                    if (crate.Barcode.Equals(spawnedBarcode))
-                    {
-                        AttachmentDatabase.AddAttachmentSlots(spawnedBarcode, spawnedGo);
-                    }
-                }
-            }
-        }
+        AttachmentDatabase.AddAttachmentSlots(spawnedBarcode, spawnedGo, owner);
 
         if (owner != PlayerIdManager.LocalId.SmallId) return;
         WeaponSlot weaponSlot = spawnedGo.GetComponentInChildren<WeaponSlot>();
