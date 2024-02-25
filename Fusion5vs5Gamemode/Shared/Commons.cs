@@ -55,6 +55,7 @@ public static class Commons
         public const string PlayerLeft = "PlayerLeft";
         public const string BuyTimeOver = "BuyTimeOver";
         public const string BuyTimeStart = "BuyTimeStart";
+        public const string ItemBought = "ItemBought";
     }
 
     public static class ClientRequest

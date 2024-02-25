@@ -12,7 +12,7 @@ public static class SpawnResponseMessagePatches
         
     [HarmonyPostfix]
     [HarmonyPatch(nameof(SpawnResponseMessage.OnSpawnFinished))]
-    public static void SpawnFinished(byte owner, string barcode, ref GameObject go)
+    public static void SpawnFinished(byte owner, string barcode, GameObject go)
     {
         SafeActions.InvokeActionSafe(OnSpawnFinished, owner, barcode, go);
     }

@@ -1,5 +1,6 @@
 ﻿using System.Reflection;
 using FieldInjector;
+using Fusion5vs5Gamemode.Client.Combat;
 using Fusion5vs5Gamemode.SDK;
 using Fusion5vs5Gamemode.Utilities.HarmonyPatches;
 using LabFusion.SDK.Gamemodes;

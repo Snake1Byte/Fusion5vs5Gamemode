@@ -729,73 +729,8 @@ public class Server : IDisposable
     {
         Log(player, barcode);
         MelonLogger.Msg("BuyItemRequested() called.");
-        _PlayerStatesDict.TryGetValue(player, out PlayerStates state);
-        if (!_PlayersInBuyZone.Contains(player) || !_IsBuyTime || state != PlayerStates.Alive)
-        {
-            return;
-        }
-
-        RigReferenceCollection rigReferences;
-        if (player.IsSelf)
-        {
-            rigReferences = RigData.RigReferences;
-        }
-        else
-        {
-            PlayerRepManager.TryGetPlayerRep(player.SmallId, out var rep);
-            rigReferences = rep.RigReferences;
-        }
-
-        if (rigReferences == null)
-        {
-            player.TryGetDisplayName(out string name);
-            MelonLogger.Warning(
-                $"Could not find RigReferenceCollection for player {name ?? $"with ID {player.LongId.ToString()}"}.");
-            return;
-        }
-
-        RigManager rm = rigReferences.RigManager;
-        Transform headTransform = rm.physicsRig.m_pelvis;
-        SerializedTransform finalTransform = new SerializedTransform(headTransform.position + headTransform.forward,
-            headTransform.rotation);
-        SpawnResponseMessagePatches.OnSpawnFinished += PlaceItemInInventory;
-        PooleeUtilities.RequestSpawn(barcode, finalTransform);
-        MelonLogger.Msg("BuyItemRequested(): passed all checks.");
-
-        void PlaceItemInInventory(byte owner, string spawnedBarcode, GameObject spawnedGo)
-        {
-            Log(owner, spawnedBarcode, spawnedGo);
-            MelonLogger.Msg("PlaceItemInInventory(): called.");
-            if (barcode != spawnedBarcode)
-            {
-                return;
-            }
-
-            SpawnResponseMessagePatches.OnSpawnFinished -= PlaceItemInInventory;
-
-            WeaponSlot weaponSlot = spawnedGo.GetComponentInChildren<WeaponSlot>();
-            if (weaponSlot == null)
-            {
-                return;
-            }
-
-            InteractableHost host = spawnedGo.GetComponentInChildren<InteractableHost>();
-            if (host == null)
-            {
-                return;
-            }
-
-            foreach (var slot in rigReferences.RigSlots)
-            {
-                if (slot._slottedWeapon == null && (slot.slotType & weaponSlot.slotType) != 0)
-                {
-                    slot.InsertInSlot(host);
-                    return;
-                }
-            }
-
-            MelonLogger.Msg("PlaceItemInInventory(): passed all checks.");
-        }
+        if (!_PlayersInBuyZone.Contains(player) || !_IsBuyTime || GetPlayerState(player) != PlayerStates.Alive) return;
+        Operations.InvokeTrigger($"{Events.ItemBought}.{player.LongId}.{barcode}");
     }
 
     private void OnPlayerEnteredBuyZone(PlayerId player)
@@ -956,7 +891,8 @@ public class Server : IDisposable
                 int? cScore = GetTeamScore(CounterTerroristTeam);
                 if (tScore == null || cScore == null)
                 {
-                    MelonLogger.Warning($"Could not determine winner since GetTeamScore() returned null instead of an int!");
+                    MelonLogger.Warning(
+                        $"Could not determine winner since GetTeamScore() returned null instead of an int!");
                     return;
                 }
 

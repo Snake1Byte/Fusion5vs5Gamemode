@@ -1,5 +1,6 @@
 ﻿using System;
 using BoneLib.Nullables;
+using Fusion5vs5Gamemode.Utilities;
 using LabFusion.NativeStructs;
 using MelonLoader;
 using SLZ.AI;
@@ -9,7 +10,7 @@ using SLZ.Marrow.Pool;
 using SLZ.Props.Weapons;
 using UnityEngine;
 
-namespace Fusion5vs5Gamemode.Utilities;
+namespace Fusion5vs5Gamemode.Client.Combat;
 
 public static class ProjectileRicochet
 {

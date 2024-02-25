@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Timers;
 using BoneLib.BoneMenu.Elements;
+using Fusion5vs5Gamemode.Client.Combat;
 using Fusion5vs5Gamemode.SDK;
 using Fusion5vs5Gamemode.Server;
 using Fusion5vs5Gamemode.Shared;
@@ -18,7 +19,9 @@ using LabFusion.SDK.Gamemodes;
 using LabFusion.Utilities;
 using MelonLoader;
 using SLZ.Bonelab;
+using SLZ.Interaction;
 using SLZ.Marrow.SceneStreaming;
+using SLZ.Props.Weapons;
 using SLZ.Rig;
 using SwipezGamemodeLib.Spawning;
 using SwipezGamemodeLib.Utilities;
@@ -341,6 +344,7 @@ public class Client : Gamemode
 
         BuyMenu.RemoveBuyMenu();
         BuyMenu.OnBuyMenuItemClicked -= OnBuyMenuItemClicked;
+        BuyMenuSpawning.Disable();
 
         TeamSelectionMenu.RemoveTeamsMenu();
         TeamSelectionMenu.OnDefendersSelected -= RequestJoinDefenders;
@@ -409,6 +413,7 @@ public class Client : Gamemode
         TriggerLasersEvents.OnTriggerExited += OnTriggerExited;
 
         BuyMenu.OnBuyMenuItemClicked += OnBuyMenuItemClicked;
+        BuyMenuSpawning.Enable();
 
         TeamSelectionMenu.AddTeamsMenu();
         TeamSelectionMenu.OnDefendersSelected += RequestJoinDefenders;
@@ -625,6 +630,14 @@ public class Client : Gamemode
             {
                 BuyMenu.AddBuyMenu();
             }
+        }
+        else if (eventName.Equals(Events.ItemBought))
+        {
+            string[] info = eventName.Split('.');
+            PlayerId? player = GetPlayerFromValue(info[1]);
+            if (player == null) return;
+            string barcode = string.Join(".", info.Skip(2));
+            BuyMenuSpawning.OnPlayerBoughtItem(player, barcode);
         }
 
         UpdateDebugText(eventName);
@@ -1092,6 +1105,11 @@ public class Client : Gamemode
         }
     }
 
+    private void OnBuyMenuItemClicked(string barcode)
+    {
+        Log(barcode);
+        RequestToServer($"{ClientRequest.BuyItem}.{PlayerIdManager.LocalId.LongId}.{barcode}");
+    }
 
     private bool IsInsideBuyZone()
     {
@@ -1113,12 +1131,6 @@ public class Client : Gamemode
         }
 
         return false;
-    }
-
-    private void OnBuyMenuItemClicked(string barcode)
-    {
-        Log(barcode);
-        RequestToServer($"{ClientRequest.BuyItem}.{PlayerIdManager.LocalId.LongId}.{barcode}");
     }
 
     private void OnBuyZoneEntered()

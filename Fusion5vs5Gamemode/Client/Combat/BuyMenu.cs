@@ -4,7 +4,7 @@ using MelonLoader;
 using SLZ.UI;
 using static Fusion5vs5Gamemode.Utilities.RadialMenu;
 
-namespace Fusion5vs5Gamemode.Client;
+namespace Fusion5vs5Gamemode.Client.Combat;
 
 public static class BuyMenu
 {

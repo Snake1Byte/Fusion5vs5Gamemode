@@ -116,8 +116,12 @@ python "D:\Windows User\Documents\Python\a\Copy_Files.py" "C:\Users\Snek\source\
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Client\BuyMenu.cs" />
     <Compile Include="Client\Client.cs" />
+    <Compile Include="Client\Combat\AttachmentDatabase.cs" />
+    <Compile Include="Client\Combat\Attachments.cs" />
+    <Compile Include="Client\Combat\BuyMenu.cs" />
+    <Compile Include="Client\Combat\BuyMenuSpawning.cs" />
+    <Compile Include="Client\Combat\ProjectileRicochet.cs" />
     <Compile Include="Client\SDKIntegration.cs" />
     <Compile Include="Client\TeamRepresentation.cs" />
     <Compile Include="Client\TeamSelectionMenu.cs" />
@@ -142,7 +146,6 @@ python "D:\Windows User\Documents\Python\a\Copy_Files.py" "C:\Users\Snek\source\
     <Compile Include="Utilities\HarmonyPatches\SpawnResponseMessagePatches.cs" />
     <Compile Include="Utilities\HarmonyPatches\TriggerLasersPatches.cs" />
     <Compile Include="Utilities\IFusionServerOperations.cs" />
-    <Compile Include="Utilities\ProjectileRicochet.cs" />
     <Compile Include="Utilities\ProjectileTrace.cs" />
     <Compile Include="Utilities\RadialMenu.cs" />
     <Compile Include="Utilities\SafeActions.cs" />
