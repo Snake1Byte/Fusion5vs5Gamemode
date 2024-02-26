@@ -16,11 +16,12 @@ public static class FusionSpawning
     {
         public string Barcode;
         public byte Owner;
+        public Action<byte, string, GameObject> SpawnAction;
     }
 
-    private static readonly Dictionary<SpawnedObject, Action<byte, string, GameObject>> SpawnQueue = new();
+    private static readonly List<SpawnedObject> SpawnQueue = new();
 
-    private static void EmptyDictionaries(LevelInfo obj)
+    private static void EmptyLists(LevelInfo obj)
     {
         Log(obj);
         lock (SpawnQueue)
@@ -38,10 +39,10 @@ public static class FusionSpawning
             if (SpawnQueue.Count == 0)
             {
                 SpawnResponseMessagePatches.OnSpawnFinished += OnSpawn;
-                Hooking.OnLevelInitialized += EmptyDictionaries;
+                Hooking.OnLevelInitialized += EmptyLists;
             }
 
-            SpawnQueue.Add(new SpawnedObject { Barcode = barcode, Owner = owner }, onSpawn);
+            SpawnQueue.Add(new SpawnedObject { Barcode = barcode, Owner = owner, SpawnAction = onSpawn });
         }
 
         PooleeUtilities.RequestSpawn(barcode, transform, owner);
@@ -50,18 +51,29 @@ public static class FusionSpawning
     private static void OnSpawn(byte owner, string barcode, GameObject go)
     {
         Log(owner, barcode, go);
-        Action<byte, string, GameObject> onSpawn;
+        Action<byte, string, GameObject>? onSpawn = null;
         lock (SpawnQueue)
         {
-            SpawnedObject spawnedObject = new SpawnedObject { Barcode = barcode, Owner = owner };
-            if (!SpawnQueue.TryGetValue(spawnedObject, out onSpawn)) return;
-            SpawnQueue.Remove(spawnedObject);
+            SpawnedObject? toRemove = null;
+            foreach (SpawnedObject obj in SpawnQueue)
+            {
+                if (obj.Barcode.Equals(barcode) && obj.Owner.Equals(owner))
+                {
+                    toRemove = obj;
+                    onSpawn = obj.SpawnAction;
+                    break;
+                }
+            }
+
+            if (toRemove == null) return;
+            SpawnQueue.Remove(toRemove.Value);
             if (SpawnQueue.Count == 0)
             {
                 SpawnResponseMessagePatches.OnSpawnFinished -= OnSpawn;
-                Hooking.OnLevelInitialized -= EmptyDictionaries;
+                Hooking.OnLevelInitialized -= EmptyLists;
             }
         }
-        onSpawn?.Invoke(owner, barcode, go);
+
+        SafeActions.InvokeActionSafe(onSpawn, owner, barcode, go);
     }
 }

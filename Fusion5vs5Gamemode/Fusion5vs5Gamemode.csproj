@@ -117,7 +117,7 @@ python "D:\Windows User\Documents\Python\a\Copy_Files.py" "C:\Users\Snek\source\
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Client\Client.cs" />
-    <Compile Include="Client\Combat\AttachmentDatabase.cs" />
+    <Compile Include="Client\Combat\WeaponModification.cs" />
     <Compile Include="Client\Combat\Attachments.cs" />
     <Compile Include="Client\Combat\BuyMenu.cs" />
     <Compile Include="Client\Combat\BuyMenuSpawning.cs" />
@@ -139,6 +139,7 @@ python "D:\Windows User\Documents\Python\a\Copy_Files.py" "C:\Users\Snek\source\
     <Compile Include="Shared\GameStates.cs" />
     <Compile Include="Utilities\Extensions\IntElementExtensions.cs" />
     <Compile Include="Utilities\FusionSpawning.cs" />
+    <Compile Include="Utilities\HarmonyPatches\AssetPooleePatches.cs" />
     <Compile Include="Utilities\HarmonyPatches\GunPatches.cs" />
     <Compile Include="Utilities\HarmonyPatches\ImpactPropertiesPatches.cs" />
     <Compile Include="Utilities\HarmonyPatches\NativeUtilities.cs" />

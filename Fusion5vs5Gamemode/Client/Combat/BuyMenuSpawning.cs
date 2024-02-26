@@ -48,8 +48,8 @@ public class BuyMenuSpawning
     {
         Log(owner, spawnedBarcode, spawnedGo);
 
-        AttachmentDatabase.AddAttachmentSlots(spawnedBarcode, spawnedGo, owner);
-
+        WeaponModification.AddAttachmentSlots(spawnedBarcode, spawnedGo, owner);
+        return;
         if (owner != PlayerIdManager.LocalId.SmallId) return;
         WeaponSlot weaponSlot = spawnedGo.GetComponentInChildren<WeaponSlot>();
         if (weaponSlot == null) return;

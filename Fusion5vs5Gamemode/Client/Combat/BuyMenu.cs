@@ -29,6 +29,7 @@ public static class BuyMenu
     private static RadialMenuItem UMP;
     private static RadialMenuItem MP5;
     private static RadialMenuItem Vector;
+    private static RadialMenuItem UZI;
 
     // Shotguns
     private static RadialMenuItem FAB;
@@ -39,6 +40,7 @@ public static class BuyMenu
     private static RadialMenuItem MK18;
     private static RadialMenuItem AKM;
     private static RadialMenuItem PDRC;
+    private static RadialMenuItem M16;
 
     // Sniper Rifles
 
@@ -69,9 +71,12 @@ public static class BuyMenu
             () => Internal_OnBuyMenuItemClicked(CommonBarcodes.Guns.MP5));
         Vector = new RadialMenuItem("Vector", PageItem.Directions.EAST,
             () => Internal_OnBuyMenuItemClicked(CommonBarcodes.Guns.Vector));
+        UZI = new RadialMenuItem("UZI", PageItem.Directions.SOUTHWEST,
+            () => Internal_OnBuyMenuItemClicked(CommonBarcodes.Guns.UZI));
         _SMGs.Add(UMP);
         _SMGs.Add(MP5);
         _SMGs.Add(Vector);
+        _SMGs.Add(UZI);
         _BuyMenu.Add(_SMGs);
 
         _Shotguns = _BuyMenu.CreateSubMenu("Shotguns", PageItem.Directions.NORTHEAST)!;
@@ -88,14 +93,17 @@ public static class BuyMenu
 
         _Rifles = _BuyMenu.CreateSubMenu("Rifles", PageItem.Directions.NORTH)!;
         MK18 = new RadialMenuItem("MK18", PageItem.Directions.NORTH,
-            () => Internal_OnBuyMenuItemClicked(CommonBarcodes.Guns.MK18HoloForegrip));
+            () => Internal_OnBuyMenuItemClicked(CommonBarcodes.Guns.MK18Naked));
         AKM = new RadialMenuItem("AKM", PageItem.Directions.EAST,
             () => Internal_OnBuyMenuItemClicked(CommonBarcodes.Guns.AKM));
         PDRC = new RadialMenuItem("PDRC", PageItem.Directions.WEST,
             () => Internal_OnBuyMenuItemClicked(CommonBarcodes.Guns.PDRC));
+        M16 = new RadialMenuItem("M16", PageItem.Directions.SOUTHWEST,
+            () => Internal_OnBuyMenuItemClicked(CommonBarcodes.Guns.M16IronSights));
         _Rifles.Add(MK18);
         _Rifles.Add(AKM);
         _Rifles.Add(PDRC);
+        _Rifles.Add(M16);
         _BuyMenu.Add(_Rifles);
     }
 
@@ -122,7 +130,7 @@ public static class BuyMenu
             RadialSubMenu? currentSubMenu = CurrentCustomSubMenu;
             if (currentSubMenu == null)
                 return;
-                
+
             MelonLogger.Msg($"Current Custom SubMenu: {currentSubMenu.Name}");
 
             if (currentSubMenu == _BuyMenu || IsSubMenuInsideChildren(_BuyMenu, currentSubMenu))

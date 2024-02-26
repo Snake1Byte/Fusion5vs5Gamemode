@@ -455,13 +455,10 @@ public class Client : Gamemode
             string playerRaw = key.Split('.')[2];
             PlayerId? player = GetPlayerFromValue(playerRaw);
             if (player == null) return;
-            if (player.IsSelf)
-            {
-                SerializedTransform? transform = GetSpawnPointFromValue(value);
-                if (transform == null) return;
-                SetFusionSpawnPoint(transform.Value.position.ToUnityVector3(),
-                    transform.Value.rotation.ToUnityQuaternion().eulerAngles);
-            }
+            SerializedTransform? transform = GetSpawnPointFromValue(value);
+            if (transform == null) return;
+            SetFusionSpawnPoint(player, transform.Value.position.ToUnityVector3(),
+                transform.Value.rotation.ToUnityQuaternion().eulerAngles);
         }
         else if (key.StartsWith(Commons.Metadata.PlayerFrozenKey))
         {
@@ -840,6 +837,8 @@ public class Client : Gamemode
     private void OnPlayerLeft(PlayerId player)
     {
         Log(player);
+        GameObject go = GameObject.Find($"Fusion 5vs5 Spawn Point for {player.LongId}");
+        if (go != null) Object.Destroy(go);
         // TODO Implement UI changes
     }
 
@@ -1039,18 +1038,18 @@ public class Client : Gamemode
     /// </summary>
     /// <param name="pos"><see cref="Vector3"/> world space position of the new spawn point</param>
     /// <param name="rot"><see cref="Vector3"/> eulerAngles of the new spawn point</param>
-    private void SetFusionSpawnPoint(Vector3 pos, Vector3 rot)
+    private void SetFusionSpawnPoint(PlayerId player, Vector3 pos, Vector3 rot)
     {
-        Log(pos, rot);
-        GameObject go = GameObject.Find("Fusion 5vs5 Spawn Point");
+        Log(player, pos, rot);
+        GameObject go = GameObject.Find($"Fusion 5vs5 Spawn Point for {player.LongId}");
         if (go == null)
         {
-            go = new GameObject("Fusion 5vs5 Spawn Point");
+            go = new GameObject($"Fusion 5vs5 Spawn Point for {player.LongId}");
         }
 
         go.transform.position = pos;
         go.transform.localEulerAngles = rot;
-        FusionPlayer.SetSpawnPoints(go.transform);
+        if (player.IsSelf) FusionPlayer.SetSpawnPoints(go.transform);
     }
 
     private void Freeze(bool force = false)
