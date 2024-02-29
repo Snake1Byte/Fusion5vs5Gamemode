@@ -99,6 +99,9 @@ python "D:\Windows User\Documents\Python\a\Copy_Files.py" "C:\Users\Snek\source\
     <Reference Include="UnityEngine">
       <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\BONELAB\MelonLoader\Managed\UnityEngine.dll</HintPath>
     </Reference>
+    <Reference Include="UnityEngine.AssetBundleModule">
+      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\BONELAB\MelonLoader\Managed\UnityEngine.AssetBundleModule.dll</HintPath>
+    </Reference>
     <Reference Include="UnityEngine.AudioModule">
       <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\BONELAB\MelonLoader\Managed\UnityEngine.AudioModule.dll</HintPath>
     </Reference>
@@ -139,7 +142,6 @@ python "D:\Windows User\Documents\Python\a\Copy_Files.py" "C:\Users\Snek\source\
     <Compile Include="Shared\GameStates.cs" />
     <Compile Include="Utilities\Extensions\IntElementExtensions.cs" />
     <Compile Include="Utilities\FusionSpawning.cs" />
-    <Compile Include="Utilities\HarmonyPatches\AssetPooleePatches.cs" />
     <Compile Include="Utilities\HarmonyPatches\GunPatches.cs" />
     <Compile Include="Utilities\HarmonyPatches\ImpactPropertiesPatches.cs" />
     <Compile Include="Utilities\HarmonyPatches\NativeUtilities.cs" />

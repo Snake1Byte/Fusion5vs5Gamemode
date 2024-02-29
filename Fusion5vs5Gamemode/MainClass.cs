@@ -11,6 +11,8 @@ namespace Fusion5vs5Gamemode;
 
 public class MainClass : MelonMod
 {
+
+    public static Assembly Assembly = Assembly.GetExecutingAssembly();
     public override void OnInitializeMelon()
     {
         SerialisationHandler.Inject<Fusion5vs5GamemodeDescriptor>();
