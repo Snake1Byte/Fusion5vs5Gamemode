@@ -34,7 +34,7 @@ public static class BuyMenu
     // Shotguns
     private static RadialMenuItem FAB;
     private static RadialMenuItem M4;
-    private static RadialMenuItem _590A1;
+    private static RadialMenuItem M590A1;
 
     // Rifles
     private static RadialMenuItem MK18;
@@ -84,11 +84,11 @@ public static class BuyMenu
             () => Internal_OnBuyMenuItemClicked(CommonBarcodes.Guns.FAB));
         M4 = new RadialMenuItem("M4", PageItem.Directions.EAST,
             () => Internal_OnBuyMenuItemClicked(CommonBarcodes.Guns.M4));
-        _590A1 = new RadialMenuItem("590A1", PageItem.Directions.NORTH,
+        M590A1 = new RadialMenuItem("590A1", PageItem.Directions.NORTH,
             () => Internal_OnBuyMenuItemClicked(CommonBarcodes.Guns.M590A1));
         _Shotguns.Add(FAB);
         _Shotguns.Add(M4);
-        _Shotguns.Add(_590A1);
+        _Shotguns.Add(M590A1);
         _BuyMenu.Add(_Shotguns);
 
         _Rifles = _BuyMenu.CreateSubMenu("Rifles", PageItem.Directions.NORTH)!;

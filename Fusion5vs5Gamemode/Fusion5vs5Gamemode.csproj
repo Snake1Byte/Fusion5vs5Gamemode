@@ -120,6 +120,7 @@ python "D:\Windows User\Documents\Python\a\Copy_Files.py" "C:\Users\Snek\source\
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Client\Client.cs" />
+    <Compile Include="Client\Combat\AssetDatabase.cs" />
     <Compile Include="Client\Combat\WeaponModification.cs" />
     <Compile Include="Client\Combat\Attachments.cs" />
     <Compile Include="Client\Combat\BuyMenu.cs" />
@@ -152,7 +153,11 @@ python "D:\Windows User\Documents\Python\a\Copy_Files.py" "C:\Users\Snek\source\
     <Compile Include="Utilities\IFusionServerOperations.cs" />
     <Compile Include="Utilities\ProjectileTrace.cs" />
     <Compile Include="Utilities\RadialMenu.cs" />
+    <Compile Include="Utilities\Resources.cs" />
     <Compile Include="Utilities\SafeActions.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\fusion5vs5custom.bundle" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

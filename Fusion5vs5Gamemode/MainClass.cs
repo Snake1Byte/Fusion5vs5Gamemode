@@ -6,13 +6,12 @@ using Fusion5vs5Gamemode.Utilities.HarmonyPatches;
 using LabFusion.SDK.Gamemodes;
 using LabFusion.SDK.Modules;
 using MelonLoader;
+using UnityEngine;
 
 namespace Fusion5vs5Gamemode;
 
 public class MainClass : MelonMod
 {
-
-    public static Assembly Assembly = Assembly.GetExecutingAssembly();
     public override void OnInitializeMelon()
     {
         SerialisationHandler.Inject<Fusion5vs5GamemodeDescriptor>();

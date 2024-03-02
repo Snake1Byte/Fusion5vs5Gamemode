@@ -11,5 +11,5 @@ public class Attachments
     public readonly List<SerializedTransform> MuzzleSlotsToAdd = new();
     public readonly Dictionary<string, string> PicatinnyAttachmentsToAdd = new();
     public readonly List<string> GameObjectsToRemove = new();
-    public Action<GameObject> CustomAction;
+    public Action<GameObject> CustomActionUponSpawn;
 }
