@@ -1,14 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using BoneLib;
-using Fusion5vs5Gamemode.Shared;
 using Fusion5vs5Gamemode.Utilities;
 using HarmonyLib;
 using LabFusion.Data;
 using LabFusion.Representation;
 using SLZ.Interaction;
-using SLZ.Marrow.Data;
 using SLZ.Marrow.Pool;
 using UnityEngine;
 using Quaternion = System.Numerics.Quaternion;
@@ -212,7 +209,7 @@ public static class AssetDatabase
         }
 
         if (currentBarcode.Equals(barcode)) return;
-        FusionSpawning.RequestSpawn(barcode, new SerializedTransform(Vector3.One, Quaternion.Identity), PlayerIdManager.LocalId.SmallId, (owner, spawnedBarcode, otherMk18) =>
+        FusionSpawning.RequestSpawn(barcode, new SerializedTransform(Vector3.One, Quaternion.Identity), PlayerIdManager.LocalId.SmallId, (owner, spawnedBarcode, syncId, otherMk18) =>
         {
             try
             {
@@ -235,7 +232,7 @@ public static class AssetDatabase
 
     private static void UMPAddBarrelGrip(GameObject ump)
     {
-        FusionSpawning.RequestSpawn(CommonBarcodes.Guns.MP5, new SerializedTransform(Vector3.One, Quaternion.Identity), PlayerIdManager.LocalId.SmallId, (owner, spawnedBarcode, mp5) =>
+        FusionSpawning.RequestSpawn(CommonBarcodes.Guns.MP5, new SerializedTransform(Vector3.One, Quaternion.Identity), PlayerIdManager.LocalId.SmallId, (owner, spawnedBarcode, syncId, mp5) =>
         {
             GameObject? barrelGrip = mp5.transform.Find("BarrelGrip")?.gameObject;
             if (barrelGrip == null) return;

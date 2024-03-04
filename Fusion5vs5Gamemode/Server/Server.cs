@@ -4,8 +4,8 @@ using System.Linq;
 using System.Timers;
 using Fusion5vs5Gamemode.SDK;
 using Fusion5vs5Gamemode.Shared;
+using Fusion5vs5Gamemode.Shared.Modules;
 using Fusion5vs5Gamemode.Utilities;
-using Fusion5vs5Gamemode.Utilities.HarmonyPatches;
 using LabFusion.Data;
 using LabFusion.Extensions;
 using LabFusion.Network;
@@ -14,9 +14,6 @@ using LabFusion.SDK.Gamemodes;
 using LabFusion.Senders;
 using LabFusion.Utilities;
 using MelonLoader;
-using SLZ.Interaction;
-using SLZ.Props.Weapons;
-using SLZ.Rig;
 using UnityEngine;
 using static Fusion5vs5Gamemode.Shared.Commons;
 
@@ -104,6 +101,8 @@ public class Server : IDisposable
         _BuyTimer = new Timer();
         _BuyTimer.AutoReset = false;
         _BuyTimer.Elapsed += (_, _) => BuyTimeOver();
+
+        ModuleMessages.GenericClientRequest += OnClientRequested;
     }
 
     // Callbacks
@@ -199,7 +198,7 @@ public class Server : IDisposable
             }
             else if (type == PlayerActionType.DEALT_DAMAGE_TO_OTHER_PLAYER)
             {
-                // stuff for player assist
+                // stuff for kill assist
             }
         }
     }
@@ -207,6 +206,10 @@ public class Server : IDisposable
     public void OnClientRequested(string request)
     {
         Log(request);
+#if DEBUG
+        MelonLogger.Msg($"Server.OnClientRequested({request})");
+#endif
+
         if (request.StartsWith(ClientRequest.ChangeTeams))
         {
             string[] info = request.Split('.');
@@ -728,7 +731,6 @@ public class Server : IDisposable
     private void BuyItemRequested(PlayerId player, string barcode)
     {
         Log(player, barcode);
-        MelonLogger.Msg("BuyItemRequested() called.");
         if (!_PlayersInBuyZone.Contains(player) || !_IsBuyTime || GetPlayerState(player) != PlayerStates.Alive) return;
         Operations.InvokeTrigger($"{Events.ItemBought}.{player.LongId}.{barcode}");
     }
@@ -1044,6 +1046,7 @@ public class Server : IDisposable
             MultiplayerHooking.OnPlayerAction -= OnPlayerAction;
             MultiplayerHooking.OnLoadingBegin -= On5vs5Aborted;
 
+            ModuleMessages.GenericClientRequest -= OnClientRequested;
             foreach (var team in _Teams)
             {
                 team.Players.Clear();

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using BoneLib;
 using Fusion5vs5Gamemode.Utilities;
@@ -12,8 +11,6 @@ using SLZ.Interaction;
 using SLZ.Marrow.Pool;
 using UnityEngine;
 using Object = UnityEngine.Object;
-using Quaternion = System.Numerics.Quaternion;
-using Vector3 = System.Numerics.Vector3;
 using static Fusion5vs5Gamemode.Shared.Commons;
 using SafeActions = BoneLib.SafeActions;
 
@@ -22,15 +19,15 @@ namespace Fusion5vs5Gamemode.Client.Combat;
 public static class WeaponModification
 {
     public const string ROOT_NAME = "Fusion 5vs5 Custom Objects";
-    private static GameObject? PicatinnySlot;
-    private static GameObject? MuzzleSlot;
-    private static GameObject? Dovetail;
+    private static GameObject? _PicatinnySlot;
+    private static GameObject? _MuzzleSlot;
+    private static GameObject? _Dovetail;
 
-    private static Dictionary<GameObject, List<GameObject>> ModifiedWeapons = new(new GoComparer());
+    private static Dictionary<GameObject, List<GameObject>> _ModifiedWeapons = new(new GoComparer());
 
     private static void EmptyCollections(LevelInfo obj)
     {
-        ModifiedWeapons.Clear();
+        _ModifiedWeapons.Clear();
     }
 
     public static void ModifyWeapon(GameObject spawnedGo, byte owner)
@@ -49,8 +46,8 @@ public static class WeaponModification
 
         GameObject root = new GameObject(ROOT_NAME);
         root.transform.SetParent(spawnedGo.transform);
-        root.transform.localPosition = UnityEngine.Vector3.zero;
-        root.transform.localRotation = UnityEngine.Quaternion.identity;
+        root.transform.localPosition = Vector3.zero;
+        root.transform.localRotation = Quaternion.identity;
         foreach (string path in attachments.GameObjectsToRemove)
         {
             Transform transform = spawnedGo.transform.Find(path);
@@ -62,16 +59,16 @@ public static class WeaponModification
         InitializePicatinnySlotAsync(owner, null);
 
         List<GameObject> addedSlots = new();
-        MelonCoroutines.Start(CoWaitAndAddPicatinnySlots(root, attachments.PicatinnySlotsToAdd, () => PicatinnySlot != null, list =>
+        MelonCoroutines.Start(CoWaitAndAddPicatinnySlots(root, attachments.PicatinnySlotsToAdd, () => _PicatinnySlot != null, list =>
         {
-            if (ModifiedWeapons.Count == 0)
+            if (_ModifiedWeapons.Count == 0)
             {
                 // TODO unsubscribe again after removing items from list
                 Hooking.OnLevelInitialized += EmptyCollections;
             }
 
             addedSlots.AddRange(list);
-            ModifiedWeapons.Add(spawnedGo, addedSlots);
+            _ModifiedWeapons.Add(spawnedGo, addedSlots);
         }));
 
         MelonCoroutines.Start(CoWaitAndAddAttachmentsToPicatinnySlots(addedSlots, attachments.PicatinnyAttachmentsToAdd, true, owner, () => addedSlots.Count != 0));
@@ -90,15 +87,15 @@ public static class WeaponModification
     private static void InitializePicatinnySlotAsync(byte owner, Action? continueWith)
     {
         Log(owner, continueWith!);
-        if (PicatinnySlot == null)
+        if (_PicatinnySlot == null)
         {
-            FusionSpawning.RequestSpawn("Rexmeck.GunAttachments.Spawnable.45CantedRail", new SerializedTransform(Vector3.One, Quaternion.Identity), owner, (b, s, source) =>
+            FusionSpawning.RequestSpawn("Rexmeck.GunAttachments.Spawnable.45CantedRail", new SerializedTransform(Vector3.one, Quaternion.identity), owner, (b, s, syncId, source) =>
             {
                 Transform tr = source.transform.Find("Sockets/Attachment_Rail_v2");
                 if (tr == null) return;
-                PicatinnySlot = Object.Instantiate(tr.gameObject);
-                PicatinnySlot.transform.SetPositionAndRotation(UnityEngine.Vector3.zero, UnityEngine.Quaternion.identity);
-                PicatinnySlot.gameObject.name = "PicatinnySlot";
+                _PicatinnySlot = Object.Instantiate(tr.gameObject);
+                _PicatinnySlot.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+                _PicatinnySlot.gameObject.name = "PicatinnySlot";
                 // destroy instead of despawning this, the attachment has references to the canted rail now
                 Object.Destroy(source);
 
@@ -139,8 +136,8 @@ public static class WeaponModification
     {
         Log(root, transform);
 
-        if (PicatinnySlot == null) return null;
-        GameObject? obj = AddGameObject(PicatinnySlot, "", root);
+        if (_PicatinnySlot == null) return null;
+        GameObject? obj = AddGameObject(_PicatinnySlot, "", root);
         if (obj == null) return null;
         obj.transform.localPosition = transform.position.ToUnityVector3();
         obj.transform.localRotation = transform.rotation.ToUnityQuaternion();
@@ -184,7 +181,7 @@ public static class WeaponModification
         }
         else
         {
-            FusionSpawning.RequestSpawn(attachmentBarcode, new SerializedTransform(slot.transform.position, slot.transform.rotation), owner, (spawnedAttachmentOwner, spawnedAttachmentBarcode, spawnedAttachmentGo) =>
+            FusionSpawning.RequestSpawn(attachmentBarcode, new SerializedTransform(slot.transform.position, slot.transform.rotation), owner, (spawnedAttachmentOwner, spawnedAttachmentBarcode, syncId, spawnedAttachmentGo) =>
             {
                 try
                 {
@@ -227,7 +224,7 @@ public static class WeaponModification
 
     private static void ResetAttachmentSlots(GameObject weapon, byte owner)
     {
-        List<GameObject> slots = ModifiedWeapons[weapon];
+        List<GameObject> slots = _ModifiedWeapons[weapon];
         foreach (GameObject slot in slots)
         {
             if (SlotNeedsReset(weapon, slot)) RemoveAttachmentFromPicatinnySlot(slot, true);
@@ -263,10 +260,8 @@ public static class WeaponModification
             {
                 return false;
             }
-            else
-            {
-                return true;
-            }
+
+            return true;
         }
 
         return false;

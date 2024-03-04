@@ -4,7 +4,6 @@ using BoneLib;
 using Fusion5vs5Gamemode.Utilities.HarmonyPatches;
 using LabFusion.Data;
 using LabFusion.Utilities;
-using TriangleNet;
 using UnityEngine;
 using static Fusion5vs5Gamemode.Shared.Commons;
 
@@ -16,7 +15,7 @@ public static class FusionSpawning
     {
         public string Barcode;
         public byte Owner;
-        public Action<byte, string, GameObject> SpawnAction;
+        public Action<byte, string, ushort, GameObject> SpawnAction;
     }
 
     private static readonly List<SpawnedObject> SpawnQueue = new();
@@ -31,7 +30,7 @@ public static class FusionSpawning
     }
 
     public static void RequestSpawn(string barcode, SerializedTransform transform, byte owner,
-        Action<byte, string, GameObject> onSpawn)
+        Action<byte, string, ushort, GameObject> onSpawn)
     {
         Log(barcode, transform, owner, onSpawn);
         lock (SpawnQueue)
@@ -48,10 +47,10 @@ public static class FusionSpawning
         PooleeUtilities.RequestSpawn(barcode, transform, owner);
     }
 
-    private static void OnSpawn(byte owner, string barcode, GameObject go)
+    private static void OnSpawn(byte owner, string barcode, ushort syncId, GameObject go)
     {
-        Log(owner, barcode, go);
-        Action<byte, string, GameObject>? onSpawn = null;
+        Log(owner, barcode, syncId, go);
+        Action<byte, string, ushort, GameObject>? onSpawn = null;
         lock (SpawnQueue)
         {
             SpawnedObject? toRemove = null;
@@ -74,6 +73,6 @@ public static class FusionSpawning
             }
         }
 
-        SafeActions.InvokeActionSafe(onSpawn, owner, barcode, go);
+        SafeActions.InvokeActionSafe(onSpawn, owner, barcode, syncId, go);
     }
 }

@@ -1,10 +1,9 @@
 ﻿using System;
 using SLZ.UI;
-using TriangleNet;
 using static Fusion5vs5Gamemode.Utilities.RadialMenu;
 using static Fusion5vs5Gamemode.Shared.Commons;
 
-namespace Fusion5vs5Gamemode.Client;
+namespace Fusion5vs5Gamemode.Client.UI;
 
 public static class TeamSelectionMenu
 {

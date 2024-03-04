@@ -2,13 +2,14 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Timers;
 using BoneLib.BoneMenu.Elements;
 using Fusion5vs5Gamemode.Client.Combat;
+using Fusion5vs5Gamemode.Client.UI;
 using Fusion5vs5Gamemode.SDK;
 using Fusion5vs5Gamemode.Server;
 using Fusion5vs5Gamemode.Shared;
+using Fusion5vs5Gamemode.Shared.Modules;
 using Fusion5vs5Gamemode.Utilities.Extensions;
 using Fusion5vs5Gamemode.Utilities.HarmonyPatches;
 using LabFusion.Data;
@@ -19,16 +20,14 @@ using LabFusion.SDK.Gamemodes;
 using LabFusion.Utilities;
 using MelonLoader;
 using SLZ.Bonelab;
-using SLZ.Interaction;
 using SLZ.Marrow.SceneStreaming;
-using SLZ.Props.Weapons;
 using SLZ.Rig;
 using SwipezGamemodeLib.Spawning;
 using SwipezGamemodeLib.Utilities;
 using TMPro;
 using UnityEngine;
 using static Fusion5vs5Gamemode.Shared.Commons;
-using static Fusion5vs5Gamemode.Shared.Fusion5vs5CustomModule;
+using static Fusion5vs5Gamemode.Client.ServerRequests;
 using Object = UnityEngine.Object;
 
 namespace Fusion5vs5Gamemode.Client;
@@ -207,7 +206,7 @@ public class Client : Gamemode
         Log();
         base.OnStartGamemode();
         MelonLogger.Msg("5vs5 Mode: OnStartGamemode Called.");
-        Commons._Metadata = Metadata;
+        _Metadata = Metadata;
         _Menu!.Elements.RemoveInstance(_EnableHalfTimeSetting);
         _Menu.Elements.RemoveInstance(_MaxRoundsSetting);
 
@@ -249,9 +248,9 @@ public class Client : Gamemode
         _UITimer.Interval = 1000;
         _UITimer.Elapsed += (_, _) => UpdateUITimer();
 
-#pragma warning disable CS0472 // The result of the expression is always the same since a value of this type is never equal to 'null'
+#pragma warning disable CS0472
         if (_Descriptor.DefendingTeam == null)
-#pragma warning restore CS0472 // The result of the expression is always the same since a value of this type is never equal to 'null'
+#pragma warning restore CS0472
         {
             _Descriptor.DefendingTeam = Fusion5vs5GamemodeDescriptor.Defaults.DefendingTeam;
         }
@@ -344,6 +343,7 @@ public class Client : Gamemode
 
         BuyMenu.RemoveBuyMenu();
         BuyMenu.OnBuyMenuItemClicked -= OnBuyMenuItemClicked;
+        ModuleMessages.ItemBought -= BuyMenuSpawning.ModifyAndPlaceItemInInventory;
 
         TeamSelectionMenu.RemoveTeamsMenu();
         TeamSelectionMenu.OnDefendersSelected -= RequestJoinDefenders;
@@ -412,6 +412,7 @@ public class Client : Gamemode
         TriggerLasersEvents.OnTriggerExited += OnTriggerExited;
 
         BuyMenu.OnBuyMenuItemClicked += OnBuyMenuItemClicked;
+        ModuleMessages.ItemBought += BuyMenuSpawning.ModifyAndPlaceItemInInventory;
 
         TeamSelectionMenu.AddTeamsMenu();
         TeamSelectionMenu.OnDefendersSelected += RequestJoinDefenders;
@@ -634,7 +635,7 @@ public class Client : Gamemode
             string barcode = string.Join(".", info.Skip(2));
             if (player.IsSelf)
             {
-                BuyMenuSpawning.OnPlayerBoughtItem(player, barcode);
+                BuyMenuSpawning.LocalPlayerBoughtItem(barcode);
             }
         }
 
@@ -793,7 +794,7 @@ public class Client : Gamemode
         Log(team);
         PlayerId player = PlayerIdManager.LocalId;
         string request = $"{ClientRequest.ChangeTeams}.{player?.LongId}.{team.ToString()}";
-        RequestToServer(request);
+        GenericRequestToServer(request);
     }
 
     private void RequestJoinSpectator()
@@ -801,7 +802,7 @@ public class Client : Gamemode
         Log();
         PlayerId player = PlayerIdManager.LocalId;
         string request = $"{ClientRequest.JoinSpectator}.{player?.LongId}";
-        RequestToServer(request);
+        GenericRequestToServer(request);
     }
 
     private void OnTeamChanged(PlayerId player, TeamRepresentation team)
@@ -1108,7 +1109,7 @@ public class Client : Gamemode
     private void OnBuyMenuItemClicked(string barcode)
     {
         Log(barcode);
-        RequestToServer($"{ClientRequest.BuyItem}.{PlayerIdManager.LocalId.LongId}.{barcode}");
+        GenericRequestToServer($"{ClientRequest.BuyItem}.{PlayerIdManager.LocalId.LongId}.{barcode}");
     }
 
     private bool IsInsideBuyZone()
@@ -1137,7 +1138,7 @@ public class Client : Gamemode
     {
         Log();
         MelonLogger.Msg("Buy Zone entered.");
-        RequestToServer($"{ClientRequest.BuyZoneEntered}.{PlayerIdManager.LocalId.LongId}");
+        GenericRequestToServer($"{ClientRequest.BuyZoneEntered}.{PlayerIdManager.LocalId.LongId}");
         if (_IsBuyTime)
         {
             BuyMenu.AddBuyMenu();
@@ -1149,7 +1150,7 @@ public class Client : Gamemode
         Log();
         MelonLogger.Msg("Buy Zone exited.");
         BuyMenu.RemoveBuyMenu();
-        RequestToServer($"{ClientRequest.BuyZoneExited}.{PlayerIdManager.LocalId.LongId}");
+        GenericRequestToServer($"{ClientRequest.BuyZoneExited}.{PlayerIdManager.LocalId.LongId}");
     }
 
     private void OnTriggerEntered(TriggerLasers obj)
