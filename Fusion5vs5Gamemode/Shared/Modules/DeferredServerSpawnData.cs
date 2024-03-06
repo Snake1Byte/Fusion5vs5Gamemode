@@ -4,22 +4,25 @@ using LabFusion.Network;
 
 namespace Fusion5vs5Gamemode.Shared.Modules;
 
-internal class ItemBoughtData : IFusionSerializable, IDisposable
+internal class DeferredServerSpawnData : IFusionSerializable, IDisposable
 {
     public const int Size = sizeof(byte) + sizeof(ushort);
     public ushort SyncId;
     public byte Owner;
+    public string Barcode;
 
     public void Serialize(FusionWriter writer)
     {
         writer.Write(SyncId);
         writer.Write(Owner);
+        writer.Write(Barcode);
     }
 
     public void Deserialize(FusionReader reader)
     {
         SyncId = reader.ReadUInt16();
         Owner = reader.ReadByte();
+        Barcode = reader.ReadString();
     }
 
     public void Dispose()
@@ -27,8 +30,8 @@ internal class ItemBoughtData : IFusionSerializable, IDisposable
         GC.SuppressFinalize(this);
     }
 
-    public static ItemBoughtData Create(ushort syncId, byte owner)
+    public static DeferredServerSpawnData Create(ushort syncId, byte owner, string barcode)
     {
-        return new ItemBoughtData { SyncId = syncId, Owner = owner };
+        return new DeferredServerSpawnData { SyncId = syncId, Owner = owner, Barcode = barcode};
     }
 }

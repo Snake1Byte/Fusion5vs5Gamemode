@@ -73,12 +73,32 @@ public static class Commons
 #endif
     }
 
+    public static RigReferenceCollection? GetRigReferences(PlayerId player)
+    {
+        Log(player);
+        
+        RigReferenceCollection rigReferences;
+        if (player.IsSelf)
+        {
+            rigReferences = RigData.RigReferences;
+        }
+        else
+        {
+            PlayerRepManager.TryGetPlayerRep(player, out PlayerRep playerRep);
+            if (playerRep == null) return null;
+            rigReferences = playerRep.RigReferences;
+        }
+
+        return rigReferences;
+    }
+
     public const string SpectatorAvatar = CommonBarcodes.Avatars.PolyBlank;
     public static FusionDictionary<string, string> _Metadata { get; set; } = new();
 
     public static Fusion5vs5GamemodeTeams? GetTeam(PlayerId localId)
     {
         Log(localId);
+        
         if (_Metadata.TryGetValue(GetTeamMemberKey(localId), out string team))
         {
             return GetTeamFromValue(team);
@@ -90,18 +110,21 @@ public static class Commons
     public static string GetTeamMemberKey(PlayerId id)
     {
         Log(id);
+        
         return $"{Metadata.TeamKey}.{id.LongId}";
     }
 
     public static string GetTeamScoreKey(Fusion5vs5GamemodeTeams team)
     {
         Log(team);
+        
         return $"{Metadata.TeamScoreKey}.{team.ToString()}";
     }
 
     public static Fusion5vs5GamemodeTeams? GetTeamFromValue(string value)
     {
         Log(value);
+        
         try
         {
             return (Fusion5vs5GamemodeTeams)Enum.Parse(typeof(Fusion5vs5GamemodeTeams), value);
@@ -119,24 +142,28 @@ public static class Commons
     public static string GetPlayerKillsKey(PlayerId killer)
     {
         Log(killer);
+        
         return $"{Metadata.PlayerKillsKey}.{killer.LongId}";
     }
 
     public static string GetPlayerAssistsKey(PlayerId assister)
     {
         Log(assister);
+        
         return $"{Metadata.PlayerAssistsKey}.{assister.LongId}";
     }
 
     public static string GetPlayerDeathsKey(PlayerId killed)
     {
         Log(killed);
+        
         return $"{Metadata.PlayerDeathsKey}.{killed.LongId}";
     }
 
     public static PlayerId? GetPlayerFromValue(string player)
     {
         Log(player);
+        
         ulong id = ulong.Parse(player);
         foreach (var playerId in PlayerIdManager.PlayerIds)
         {
@@ -153,6 +180,7 @@ public static class Commons
     public static int GetPlayerKills(PlayerId killer)
     {
         Log(killer);
+        
         _Metadata.TryGetValue(GetPlayerKillsKey(killer), out string killerScore);
         return int.Parse(killerScore);
     }
@@ -160,6 +188,7 @@ public static class Commons
     public static int GetPlayerDeaths(PlayerId killed)
     {
         Log(killed);
+        
         _Metadata.TryGetValue(GetPlayerDeathsKey(killed), out string deathScore);
         return int.Parse(deathScore);
     }
@@ -167,6 +196,7 @@ public static class Commons
     public static int GetRoundNumber()
     {
         Log();
+        
         _Metadata.TryGetValue(Metadata.RoundNumberKey, out string roundNumber);
         return int.Parse(roundNumber);
     }
@@ -174,6 +204,7 @@ public static class Commons
     public static GameStates? GetGameStateFromValue(string value)
     {
         Log(value);
+        
         try
         {
             return (GameStates)Enum.Parse(typeof(GameStates), value);
@@ -189,6 +220,7 @@ public static class Commons
     public static GameStates? GetGameState()
     {
         Log();
+        
         if (_Metadata.TryGetValue(Metadata.GameStateKey, out string gameState))
         {
             return GetGameStateFromValue(gameState);
@@ -202,6 +234,7 @@ public static class Commons
     public static SerializedTransform? GetSpawnPointFromValue(string value)
     {
         Log(value);
+        
         try
         {
             string[] split = value.Split(',');
@@ -226,6 +259,7 @@ public static class Commons
     public static SerializedTransform? GetSpawnPoint(PlayerId player)
     {
         Log(player);
+        
         if (_Metadata.TryGetValue(GetSpawnPointKey(player), out string spawnPointRaw))
         {
             return GetSpawnPointFromValue(spawnPointRaw);
@@ -237,18 +271,21 @@ public static class Commons
     public static string GetSpawnPointKey(PlayerId player)
     {
         Log(player);
+        
         return $"{Metadata.SpawnPointKey}.{player.LongId}";
     }
 
     public static string GetPlayerFrozenKey(PlayerId player)
     {
         Log(player);
+        
         return $"{Metadata.PlayerFrozenKey}.{player.LongId}";
     }
 
     public static bool? IsPlayerFrozen(PlayerId player)
     {
         Log(player);
+        
         if (_Metadata.TryGetValue(GetPlayerFrozenKey(player), out string frozen))
         {
             try

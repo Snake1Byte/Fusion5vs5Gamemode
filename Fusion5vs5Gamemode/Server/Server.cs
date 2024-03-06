@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Timers;
+using Fusion5vs5Gamemode.Client;
+using Fusion5vs5Gamemode.Client.Combat;
 using Fusion5vs5Gamemode.SDK;
 using Fusion5vs5Gamemode.Shared;
 using Fusion5vs5Gamemode.Shared.Modules;
@@ -14,6 +16,7 @@ using LabFusion.SDK.Gamemodes;
 using LabFusion.Senders;
 using LabFusion.Utilities;
 using MelonLoader;
+using SLZ.Rig;
 using UnityEngine;
 using static Fusion5vs5Gamemode.Shared.Commons;
 
@@ -731,6 +734,7 @@ public class Server : IDisposable
     private void BuyItemRequested(PlayerId player, string barcode)
     {
         Log(player, barcode);
+        
         if (!_PlayersInBuyZone.Contains(player) || !_IsBuyTime || GetPlayerState(player) != PlayerStates.Alive) return;
         Operations.InvokeTrigger($"{Events.ItemBought}.{player.LongId}.{barcode}");
     }

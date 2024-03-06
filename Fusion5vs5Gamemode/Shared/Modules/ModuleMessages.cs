@@ -5,15 +5,15 @@ namespace Fusion5vs5Gamemode.Shared.Modules;
 public static class ModuleMessages
 {
     public static Action<string>? GenericClientRequest;
-    public static Action<ushort, byte>? ItemBought;
+    public static Action<ushort, byte, string>? DeferredItemSpawned;
 
     internal static void InvokeGenericClientRequest(string eventTrigger)
     {
         BoneLib.SafeActions.InvokeActionSafe(GenericClientRequest, eventTrigger);
     }
 
-    internal static void InvokeItemBought(ushort syncId, byte owner)
+    internal static void InvokeServerSpawned(ushort syncId, byte owner, string barcode)
     {
-        BoneLib.SafeActions.InvokeActionSafe(ItemBought, syncId, owner);
-    }
+        Utilities.SafeActions.InvokeActionSafe(DeferredItemSpawned, syncId, owner, barcode);
+    } 
 }

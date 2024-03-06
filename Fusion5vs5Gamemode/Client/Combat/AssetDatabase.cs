@@ -19,17 +19,22 @@ namespace Fusion5vs5Gamemode.Client.Combat;
 
 public static class AssetDatabase
 {
-    public static readonly Dictionary<string, Attachments> AttachmentDatabase = new();
+    public static Dictionary<string, Attachments>? AttachmentDatabase { get; private set; }
+    private static ISpawning? _ISpawning;
 
-    static AssetDatabase()
+    public static void SetSpawningInterface(ISpawning spawning)
     {
-        Log();
-        InitializeDatabase();
+        Log(spawning);
+        
+        _ISpawning = spawning;
     }
 
-    private static void InitializeDatabase()
+    public static void InitializeDatabase(ISpawning spawningInterface)
     {
-        Log();
+        Log(spawningInterface);
+
+        _ISpawning = spawningInterface;
+        AttachmentDatabase = new();
         string barcode = CommonBarcodes.Guns.MK18Naked;
         Attachments attachments = new Attachments();
         attachments.PicatinnySlotsToAdd.Add("Top 1", new SerializedTransform(new Vector3(0f, 0.0611f, -0.0281f), new Quaternion(0f, 0f, 3.576278E-07f, 1f)));
@@ -44,7 +49,7 @@ public static class AssetDatabase
         attachments.PicatinnySlotsToAdd.Add("Bottom 3", new SerializedTransform(new Vector3(0f, 0.003900051f, 0.2994995f), new Quaternion(0f, 0f, 1f, -3.576278E-07f)));
         attachments.PicatinnyAttachmentsToAdd.Add("Rexmeck.WeaponPack.Spawnable.DDIronSightRear", "Top 1"); // TODO new dependency :hollow:
         attachments.PicatinnyAttachmentsToAdd.Add("Rexmeck.WeaponPack.Spawnable.DDIronSightFront", "Top 5");
-        attachments.CustomActionUponSpawn += MK18RandomizeColor;
+        attachments.CustomActionUponSpawn += Mk18RandomizeColor;
         AttachmentDatabase.Add(barcode, attachments);
 
         barcode = CommonBarcodes.Guns.PDRC;
@@ -128,7 +133,7 @@ public static class AssetDatabase
         attachments.PicatinnySlotsToAdd.Add("Bottom 1", new SerializedTransform(new Vector3(0f, -0.00691f, 0.15796f), new Quaternion(0f, 0f, 1f, 0f)));
         attachments.PicatinnySlotsToAdd.Add("Bottom 2", new SerializedTransform(new Vector3(0f, -0.00691f, 0.18945f), new Quaternion(0f, 0f, 1f, 0f)));
         attachments.PicatinnySlotsToAdd.Add("Bottom 3", new SerializedTransform(new Vector3(0f, -0.00691f, 0.2192f), new Quaternion(0f, 0f, 1f, 0f)));
-        attachments.CustomActionUponSpawn += UMPAddBarrelGrip;
+        attachments.CustomActionUponSpawn += UmpAddBarrelGrip;
         AttachmentDatabase.Add(barcode, attachments);
 
         barcode = CommonBarcodes.Guns.MP5;
@@ -141,7 +146,7 @@ public static class AssetDatabase
         attachments.PicatinnySlotsToAdd.Add("Top 6", new SerializedTransform(new Vector3(0f, 0.08788f, 0.08049001f), new Quaternion(0f, 0f, 0f, 1f)));
         attachments.PicatinnyAttachmentsToAdd.Add("Rexmeck.WeaponPack.Spawnable.DDIronSightRear", "Top 1");
         attachments.PicatinnyAttachmentsToAdd.Add("Rexmeck.WeaponPack.Spawnable.DDIronSightFront", "Top 6");
-        attachments.CustomActionUponSpawn += MP5AddCustomBody;
+        attachments.CustomActionUponSpawn += Mp5AddCustomBody;
         AttachmentDatabase.Add(barcode, attachments);
 
         barcode = CommonBarcodes.Guns.Vector;
@@ -183,8 +188,10 @@ public static class AssetDatabase
         AttachmentDatabase.Add(barcode, attachments);
     }
 
-    private static void MK18RandomizeColor(GameObject mk18)
+    private static void Mk18RandomizeColor(GameObject mk18)
     {
+        Log(mk18);
+        
         string barcode = null!;
         string currentBarcode = mk18.GetComponent<AssetPoolee>()?.spawnableCrate.Barcode;
         if (currentBarcode == null) return;
@@ -209,7 +216,7 @@ public static class AssetDatabase
         }
 
         if (currentBarcode.Equals(barcode)) return;
-        FusionSpawning.RequestSpawn(barcode, new SerializedTransform(Vector3.One, Quaternion.Identity), PlayerIdManager.LocalId.SmallId, (owner, spawnedBarcode, syncId, otherMk18) =>
+        _ISpawning?.Spawn(barcode, new SerializedTransform(Vector3.One, Quaternion.Identity), otherMk18 =>
         {
             try
             {
@@ -225,14 +232,16 @@ public static class AssetDatabase
             }
             finally
             {
-                otherMk18.GetComponent<AssetPoolee>()?.Despawn();
+                _ISpawning.Despawn(otherMk18.GetComponent<AssetPoolee>());
             }
         });
     }
 
-    private static void UMPAddBarrelGrip(GameObject ump)
+    private static void UmpAddBarrelGrip(GameObject ump)
     {
-        FusionSpawning.RequestSpawn(CommonBarcodes.Guns.MP5, new SerializedTransform(Vector3.One, Quaternion.Identity), PlayerIdManager.LocalId.SmallId, (owner, spawnedBarcode, syncId, mp5) =>
+        Log(ump);
+        
+        _ISpawning?.Spawn(CommonBarcodes.Guns.MP5, new SerializedTransform(Vector3.One, Quaternion.Identity), mp5 =>
         {
             GameObject? barrelGrip = mp5.transform.Find("BarrelGrip")?.gameObject;
             if (barrelGrip == null) return;
@@ -256,13 +265,15 @@ public static class AssetDatabase
             interactableIcon.RemoveIcon();
             interactableIcon.AddIcon();
 
-            mp5.GetComponent<AssetPoolee>().Despawn();
+            _ISpawning?.Despawn(mp5.GetComponent<AssetPoolee>());
             ump.GetComponent<AssetPoolee>()?.OnSpawn(0);
         });
     }
 
-    private static void MP5AddCustomBody(GameObject mp5)
+    private static void Mp5AddCustomBody(GameObject mp5)
     {
+        Log(mp5);
+        
         MeshFilter? filter = mp5.transform.Find("offset_MP5/WPN_MP5")?.gameObject.GetComponent<MeshFilter>();
         if (filter == null) return;
         Mesh? mp5Body = Resources.Mp5Body;

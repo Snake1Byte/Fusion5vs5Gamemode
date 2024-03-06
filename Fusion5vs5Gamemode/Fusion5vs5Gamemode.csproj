@@ -121,11 +121,10 @@ python "D:\Windows User\Documents\Python\a\Copy_Files.py" "C:\Users\Snek\source\
   <ItemGroup>
     <Compile Include="Client\Client.cs" />
     <Compile Include="Client\Combat\AssetDatabase.cs" />
+    <Compile Include="Client\Combat\BuyMenuSpawning.cs" />
     <Compile Include="Client\Combat\WeaponModification.cs" />
     <Compile Include="Client\Combat\Attachments.cs" />
-    <Compile Include="Client\Combat\BuyMenuSpawning.cs" />
     <Compile Include="Client\Combat\ProjectileRicochet.cs" />
-    <Compile Include="Client\ServerRequests.cs" />
     <Compile Include="Client\SDKIntegration.cs" />
     <Compile Include="Client\TeamRepresentation.cs" />
     <Compile Include="Client\UI\BuyMenu.cs" />
@@ -136,17 +135,18 @@ python "D:\Windows User\Documents\Python\a\Copy_Files.py" "C:\Users\Snek\source\
     <Compile Include="SDK\Fusion5vs5GamemodeDescriptor.cs" />
     <Compile Include="SDK\Internal\Fusion5vs5GamemodeBehaviour.cs" />
     <Compile Include="SDK\Invoke5vs5UltEvent.cs" />
+    <Compile Include="Server\FusionSpawning.cs" />
     <Compile Include="Server\Server.cs" />
     <Compile Include="Server\FusionServerOperationsImpl.cs" />
     <Compile Include="Shared\Commons.cs" />
     <Compile Include="Shared\GameStates.cs" />
     <Compile Include="Shared\Modules\GenericClientRequestData.cs" />
     <Compile Include="Shared\Modules\GenericClientRequestHandler.cs" />
-    <Compile Include="Shared\Modules\ItemBoughtData.cs" />
-    <Compile Include="Shared\Modules\ItemBoughtHandler.cs" />
+    <Compile Include="Shared\Modules\DeferredServerSpawnData.cs" />
+    <Compile Include="Shared\Modules\DeferredServerSpawnHandler.cs" />
     <Compile Include="Shared\Modules\ModuleMessages.cs" />
+    <Compile Include="Shared\Modules\ModuleRequests.cs" />
     <Compile Include="Utilities\Extensions\IntElementExtensions.cs" />
-    <Compile Include="Utilities\FusionSpawning.cs" />
     <Compile Include="Utilities\HarmonyPatches\GunPatches.cs" />
     <Compile Include="Utilities\HarmonyPatches\ImpactPropertiesPatches.cs" />
     <Compile Include="Utilities\HarmonyPatches\NativeUtilities.cs" />
@@ -155,6 +155,7 @@ python "D:\Windows User\Documents\Python\a\Copy_Files.py" "C:\Users\Snek\source\
     <Compile Include="Utilities\HarmonyPatches\SpawnResponseMessagePatches.cs" />
     <Compile Include="Utilities\HarmonyPatches\TriggerLasersPatches.cs" />
     <Compile Include="Utilities\IFusionServerOperations.cs" />
+    <Compile Include="Utilities\ISpawning.cs" />
     <Compile Include="Utilities\ProjectileTrace.cs" />
     <Compile Include="Utilities\RadialMenu.cs" />
     <Compile Include="Utilities\Resources.cs" />

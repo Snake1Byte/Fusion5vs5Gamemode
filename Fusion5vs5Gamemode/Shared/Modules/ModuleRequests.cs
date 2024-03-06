@@ -5,12 +5,12 @@ using static Fusion5vs5Gamemode.Shared.Commons;
 
 namespace Fusion5vs5Gamemode.Client;
 
-public static class ServerRequests
+public static class ModuleRequests
 {
     public static void GenericRequestToServer(string genericRequest)
     {
         Log(genericRequest);
-        
+
         if (NetworkInfo.HasServer)
         {
             using (var writer = FusionWriter.Create())
@@ -27,16 +27,18 @@ public static class ServerRequests
         }
     }
 
-    public static void BroadcastItemBought(ushort syncId, byte owner)
+    public static void BroadcastDeferredItemSpawned(ushort syncId, byte owner, string barcode)
     {
-        Log(syncId, owner);
-        
-        using (var writer = FusionWriter.Create(ItemBoughtData.Size))
+        Log(syncId, owner, barcode);
+
+        if (!NetworkInfo.IsServer) return;
+
+        using (var writer = FusionWriter.Create(DeferredServerSpawnData.Size))
         {
-            using (var data = ItemBoughtData.Create(syncId, owner))
+            using (var data = DeferredServerSpawnData.Create(syncId, owner, barcode))
             {
                 writer.Write(data);
-                using (var message = FusionMessage.ModuleCreate<ItemBoughtHandler>(writer))
+                using (var message = FusionMessage.ModuleCreate<DeferredServerSpawnHandler>(writer))
                 {
                     MessageSender.BroadcastMessage(NetworkChannel.Reliable, message);
                 }

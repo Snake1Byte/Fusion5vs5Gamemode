@@ -2,7 +2,7 @@
 
 namespace Fusion5vs5Gamemode.Shared.Modules;
 
-internal class ItemBoughtHandler : ModuleMessageHandler
+internal class DeferredServerSpawnHandler : ModuleMessageHandler
 {
     public override void HandleMessage(byte[] bytes, bool isServerHandled = false)
     {
@@ -10,9 +10,9 @@ internal class ItemBoughtHandler : ModuleMessageHandler
         {
             using (var reader = FusionReader.Create(bytes))
             {
-                using (var data = reader.ReadFusionSerializable<ItemBoughtData>())
+                using (var data = reader.ReadFusionSerializable<DeferredServerSpawnData>())
                 {
-                    ModuleMessages.InvokeItemBought(data.SyncId, data.Owner);
+                    ModuleMessages.InvokeServerSpawned(data.SyncId, data.Owner, data.Barcode);
                 }
             }
         }

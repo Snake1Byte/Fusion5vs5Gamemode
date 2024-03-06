@@ -16,23 +16,50 @@ using SafeActions = BoneLib.SafeActions;
 
 namespace Fusion5vs5Gamemode.Client.Combat;
 
-public static class WeaponModification
+public class WeaponModification
 {
     public const string ROOT_NAME = "Fusion 5vs5 Custom Objects";
     private static GameObject? _PicatinnySlot;
     private static GameObject? _MuzzleSlot;
     private static GameObject? _Dovetail;
 
-    private static Dictionary<GameObject, List<GameObject>> _ModifiedWeapons = new(new GoComparer());
+    private static readonly Dictionary<GameObject, List<GameObject>> _ModifiedWeapons = new(new GoComparer());
+
+    private readonly ISpawning _Spawning;
 
     private static void EmptyCollections(LevelInfo obj)
     {
+        Log(obj);
+        
         _ModifiedWeapons.Clear();
     }
 
-    public static void ModifyWeapon(GameObject spawnedGo, byte owner)
+    static WeaponModification()
     {
-        Log(spawnedGo, owner);
+        Log();
+        
+        Hooking.OnLevelInitialized += EmptyCollections;
+    }
+
+    public WeaponModification(ISpawning spawning)
+    {
+        Log(spawning);
+        
+        _Spawning = spawning;
+        if (AssetDatabase.AttachmentDatabase == null)
+        {
+            AssetDatabase.InitializeDatabase(spawning);
+        }
+        else
+        {
+            AssetDatabase.SetSpawningInterface(spawning);
+        }
+    }
+
+    public void ModifyWeapon(GameObject spawnedGo)
+    {
+        Log(spawnedGo);
+
         string? barcode = spawnedGo.GetComponent<AssetPoolee>()?.spawnableCrate._barcode;
         if (barcode == null) return;
         if (!AssetDatabase.AttachmentDatabase.TryGetValue(barcode, out Attachments attachments)) return;
@@ -40,7 +67,7 @@ public static class WeaponModification
         if (customTransform != null)
         {
             customTransform.gameObject.SetActive(true);
-            ResetAttachmentSlots(spawnedGo, owner);
+            ResetAttachmentSlots(spawnedGo);
             return;
         }
 
@@ -56,24 +83,18 @@ public static class WeaponModification
             go.SetActive(false);
         }
 
-        InitializePicatinnySlotAsync(owner, null);
+        InitializePicatinnySlotAsync();
 
         List<GameObject> addedSlots = new();
         MelonCoroutines.Start(CoWaitAndAddPicatinnySlots(root, attachments.PicatinnySlotsToAdd, () => _PicatinnySlot != null, list =>
         {
-            if (_ModifiedWeapons.Count == 0)
-            {
-                // TODO unsubscribe again after removing items from list
-                Hooking.OnLevelInitialized += EmptyCollections;
-            }
-
             addedSlots.AddRange(list);
             _ModifiedWeapons.Add(spawnedGo, addedSlots);
         }));
 
-        MelonCoroutines.Start(CoWaitAndAddAttachmentsToPicatinnySlots(addedSlots, attachments.PicatinnyAttachmentsToAdd, true, owner, () => addedSlots.Count != 0));
+        MelonCoroutines.Start(CoWaitAndAddAttachmentsToPicatinnySlots(addedSlots, attachments.PicatinnyAttachmentsToAdd, true, () => addedSlots.Count != 0));
 
-        InitializeMuzzleSlotAsync(owner, () =>
+        InitializeMuzzleSlotAsync(() =>
         {
             foreach (SerializedTransform slot in attachments.MuzzleSlotsToAdd)
             {
@@ -84,12 +105,13 @@ public static class WeaponModification
         SafeActions.InvokeActionSafe(attachments.CustomActionUponSpawn, spawnedGo); // TODO add this in a coroutine too
     }
 
-    private static void InitializePicatinnySlotAsync(byte owner, Action? continueWith)
+    private void InitializePicatinnySlotAsync(Action? continueWith = null)
     {
-        Log(owner, continueWith!);
+        Log(continueWith!);
+        
         if (_PicatinnySlot == null)
         {
-            FusionSpawning.RequestSpawn("Rexmeck.GunAttachments.Spawnable.45CantedRail", new SerializedTransform(Vector3.one, Quaternion.identity), owner, (b, s, syncId, source) =>
+            Utilities.SafeActions.InvokeActionSafe(_Spawning.Spawn, "Rexmeck.GunAttachments.Spawnable.45CantedRail", new SerializedTransform(Vector3.one, Quaternion.identity), (Action<GameObject>)(source =>
             {
                 Transform tr = source.transform.Find("Sockets/Attachment_Rail_v2");
                 if (tr == null) return;
@@ -100,7 +122,7 @@ public static class WeaponModification
                 Object.Destroy(source);
 
                 SafeActions.InvokeActionSafe(continueWith);
-            });
+            }));
         }
         else
         {
@@ -108,7 +130,7 @@ public static class WeaponModification
         }
     }
 
-    private static List<GameObject> AddPicatinnySlots(GameObject root, Dictionary<string, SerializedTransform> picatinnySlotsToAdd)
+    private List<GameObject> AddPicatinnySlots(GameObject root, Dictionary<string, SerializedTransform> picatinnySlotsToAdd)
     {
         Log(root, picatinnySlotsToAdd);
 
@@ -124,7 +146,7 @@ public static class WeaponModification
         return addedSlots;
     }
 
-    private static IEnumerator CoWaitAndAddPicatinnySlots(GameObject root, Dictionary<string, SerializedTransform> picatinnySlotsToAdd, Func<bool> startUponCondition, Action<List<GameObject>> handleReturnValue)
+    private IEnumerator CoWaitAndAddPicatinnySlots(GameObject root, Dictionary<string, SerializedTransform> picatinnySlotsToAdd, Func<bool> startUponCondition, Action<List<GameObject>> handleReturnValue)
     {
         while (!startUponCondition.Invoke())
             yield return null;
@@ -132,7 +154,7 @@ public static class WeaponModification
         SafeActions.InvokeActionSafe(handleReturnValue, returnValue);
     }
 
-    private static GameObject? AddPicatinnySlot(GameObject root, SerializedTransform transform)
+    private GameObject? AddPicatinnySlot(GameObject root, SerializedTransform transform)
     {
         Log(root, transform);
 
@@ -144,8 +166,10 @@ public static class WeaponModification
         return obj;
     }
 
-    private static void AddAttachmentsToPicatinnySlots(List<GameObject> slots, Dictionary<string, string> attachmentsToAdd, bool overwriteExisting, byte owner)
+    private void AddAttachmentsToPicatinnySlots(List<GameObject> slots, Dictionary<string, string> attachmentsToAdd, bool overwriteExisting)
     {
+        Log(slots, attachmentsToAdd, overwriteExisting);
+        
         foreach (var pair in attachmentsToAdd)
         {
             string attachmentBarcodeToSpawn = pair.Key;
@@ -153,7 +177,7 @@ public static class WeaponModification
             try
             {
                 GameObject slot = slots.First(go => go.name.Equals(slotNameToAddTo));
-                AddAttachmentToPicatinnySlot(slot, attachmentBarcodeToSpawn, overwriteExisting, owner);
+                AddAttachmentToPicatinnySlot(slot, attachmentBarcodeToSpawn, overwriteExisting);
             }
             catch (InvalidOperationException)
             {
@@ -161,27 +185,29 @@ public static class WeaponModification
         }
     }
 
-    private static IEnumerator CoWaitAndAddAttachmentsToPicatinnySlots(List<GameObject> slots, Dictionary<string, string> attachmentsToAdd, bool overwriteExisting, byte owner, Func<bool> startUponCondition)
+    private IEnumerator CoWaitAndAddAttachmentsToPicatinnySlots(List<GameObject> slots, Dictionary<string, string> attachmentsToAdd, bool overwriteExisting, Func<bool> startUponCondition)
     {
         while (!startUponCondition.Invoke())
             yield return null;
-        AddAttachmentsToPicatinnySlots(slots, attachmentsToAdd, overwriteExisting, owner);
+        AddAttachmentsToPicatinnySlots(slots, attachmentsToAdd, overwriteExisting);
     }
 
-    private static void AddAttachmentToPicatinnySlot(GameObject slot, string attachmentBarcode, bool overwriteExisting, byte owner)
+    private void AddAttachmentToPicatinnySlot(GameObject slot, string attachmentBarcode, bool overwriteExisting)
     {
+        Log(slot, attachmentBarcode, overwriteExisting);
+        
         GameObject? alreadyExisting = GetAttachment(slot);
         if (alreadyExisting != null)
         {
             if (overwriteExisting)
             {
                 RemoveAttachmentFromPicatinnySlot(slot, true);
-                MelonCoroutines.Start(CoWaitAndAddAttachmentToPicatinnySlot(slot, attachmentBarcode, false, owner, () => GetAttachment(slot) == null));
+                MelonCoroutines.Start(CoWaitAndAddAttachmentToPicatinnySlot(slot, attachmentBarcode, false, () => GetAttachment(slot) == null));
             }
         }
         else
         {
-            FusionSpawning.RequestSpawn(attachmentBarcode, new SerializedTransform(slot.transform.position, slot.transform.rotation), owner, (spawnedAttachmentOwner, spawnedAttachmentBarcode, syncId, spawnedAttachmentGo) =>
+            Utilities.SafeActions.InvokeActionSafe(_Spawning.Spawn, attachmentBarcode, new SerializedTransform(slot.transform.position, slot.transform.rotation), (Action<GameObject>)(spawnedAttachmentGo =>
             {
                 try
                 {
@@ -193,37 +219,48 @@ public static class WeaponModification
                 catch (InvalidOperationException)
                 {
                 }
-            });
+            }));
         }
     }
 
-    private static IEnumerator CoWaitAndAddAttachmentToPicatinnySlot(GameObject slot, string attachmentBarcode, bool overwriteExisting, byte owner, Func<bool> startUponCondition)
+    private IEnumerator CoWaitAndAddAttachmentToPicatinnySlot(GameObject slot, string attachmentBarcode, bool overwriteExisting, Func<bool> startUponCondition)
     {
         while (!startUponCondition.Invoke())
             yield return null;
-        AddAttachmentToPicatinnySlot(slot, attachmentBarcode, overwriteExisting, owner);
+        AddAttachmentToPicatinnySlot(slot, attachmentBarcode, overwriteExisting);
     }
 
-    private static void RemoveAttachmentsFromPicatinnySlots(List<GameObject> slots, bool despawn)
+    private void RemoveAttachmentsFromPicatinnySlots(List<GameObject> slots, bool despawn)
     {
+        Log(slots, despawn);
+        
         foreach (var slot in slots)
         {
             RemoveAttachmentFromPicatinnySlot(slot, despawn);
         }
     }
 
-    private static void RemoveAttachmentFromPicatinnySlot(GameObject slot, bool despawn)
+    private void RemoveAttachmentFromPicatinnySlot(GameObject slot, bool despawn)
     {
+        Log(slot, despawn);
+        
         GameObject? attachment = GetAttachment(slot);
         if (attachment == null) return;
         SimpleGripEvents? simpleGripEvents = attachment.GetComponentInChildren<SimpleGripEvents>();
         if (simpleGripEvents == null) return;
         simpleGripEvents.OnMenuTapDown?.Invoke();
-        if (despawn) attachment.GetComponent<AssetPoolee>()?.Despawn();
+        if (despawn)
+        {
+            AssetPoolee poolee = attachment.GetComponent<AssetPoolee>();
+            if (poolee == null) return;
+            _Spawning.Despawn(poolee);
+        }
     }
 
-    private static void ResetAttachmentSlots(GameObject weapon, byte owner)
+    private void ResetAttachmentSlots(GameObject weapon)
     {
+        Log(weapon);
+        
         List<GameObject> slots = _ModifiedWeapons[weapon];
         foreach (GameObject slot in slots)
         {
@@ -233,7 +270,7 @@ public static class WeaponModification
         AssetPoolee assetPoolee = weapon.GetComponent<AssetPoolee>();
         if (!AssetDatabase.AttachmentDatabase.TryGetValue(assetPoolee.spawnableCrate._barcode, out Attachments attachments))
             return;
-        MelonCoroutines.Start(CoWaitAndAddAttachmentsToPicatinnySlots(slots, attachments.PicatinnyAttachmentsToAdd, false, owner, () =>
+        MelonCoroutines.Start(CoWaitAndAddAttachmentsToPicatinnySlots(slots, attachments.PicatinnyAttachmentsToAdd, false, () =>
         {
             foreach (GameObject slot in slots)
             {
@@ -244,8 +281,10 @@ public static class WeaponModification
         }));
     }
 
-    private static bool SlotNeedsReset(GameObject weapon, GameObject slot)
+    private bool SlotNeedsReset(GameObject weapon, GameObject slot)
     {
+        Log(weapon, slot);
+        
         GameObject? attachment = GetAttachment(slot);
         if (attachment == null) return false;
         AssetPoolee assetPoolee = weapon.GetComponent<AssetPoolee>();
@@ -267,17 +306,17 @@ public static class WeaponModification
         return false;
     }
 
-    private static void InitializeMuzzleSlotAsync(byte owner, Action? continueWith)
+    private void InitializeMuzzleSlotAsync(Action? continueWith = null)
     {
         // TODO
     }
 
-    private static void AddMuzzleSlot(GameObject root, SerializedTransform transform)
+    private void AddMuzzleSlot(GameObject root, SerializedTransform transform)
     {
         // TODO
     }
 
-    private static GameObject? AddGameObject(GameObject source, string path, GameObject target)
+    private GameObject? AddGameObject(GameObject source, string path, GameObject target)
     {
         Log(source, path, target);
         Transform transform;
@@ -295,8 +334,10 @@ public static class WeaponModification
     }
 
 
-    private static GameObject? GetAttachment(GameObject slot)
+    private GameObject? GetAttachment(GameObject slot)
     {
+        Log(slot);
+        
         if (slot == null) return null;
         GameObject? attachment = slot.transform.Find("ATTACHMENTV2")?.gameObject;
         return attachment;
