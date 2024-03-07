@@ -1,10 +1,12 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using BoneLib;
 using Fusion5vs5Gamemode.Utilities;
 using HarmonyLib;
 using LabFusion.Data;
 using LabFusion.Representation;
+using MelonLoader;
 using SLZ.Interaction;
 using SLZ.Marrow.Pool;
 using UnityEngine;
@@ -265,7 +267,7 @@ public static class AssetDatabase
             interactableIcon.RemoveIcon();
             interactableIcon.AddIcon();
 
-            _ISpawning?.Despawn(mp5.GetComponent<AssetPoolee>());
+            _ISpawning.Despawn(mp5.GetComponent<AssetPoolee>());
             ump.GetComponent<AssetPoolee>()?.OnSpawn(0);
         });
     }

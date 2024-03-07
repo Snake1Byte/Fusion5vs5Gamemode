@@ -23,28 +23,28 @@ public class WeaponModification
     private static GameObject? _MuzzleSlot;
     private static GameObject? _Dovetail;
 
-    private static readonly Dictionary<GameObject, List<GameObject>> _ModifiedWeapons = new(new GoComparer());
+    private static readonly Dictionary<GameObject, List<GameObject>> _ModifiedWeapons = new(new GameObjectComparer());
 
     private readonly ISpawning _Spawning;
 
     private static void EmptyCollections(LevelInfo obj)
     {
         Log(obj);
-        
+
         _ModifiedWeapons.Clear();
     }
 
     static WeaponModification()
     {
         Log();
-        
+
         Hooking.OnLevelInitialized += EmptyCollections;
     }
 
     public WeaponModification(ISpawning spawning)
     {
         Log(spawning);
-        
+
         _Spawning = spawning;
         if (AssetDatabase.AttachmentDatabase == null)
         {
@@ -62,7 +62,7 @@ public class WeaponModification
 
         string? barcode = spawnedGo.GetComponent<AssetPoolee>()?.spawnableCrate._barcode;
         if (barcode == null) return;
-        if (!AssetDatabase.AttachmentDatabase.TryGetValue(barcode, out Attachments attachments)) return;
+        if (!AssetDatabase.AttachmentDatabase!.TryGetValue(barcode, out Attachments attachments)) return;
         Transform customTransform = spawnedGo.transform.Find(ROOT_NAME);
         if (customTransform != null)
         {
@@ -108,7 +108,7 @@ public class WeaponModification
     private void InitializePicatinnySlotAsync(Action? continueWith = null)
     {
         Log(continueWith!);
-        
+
         if (_PicatinnySlot == null)
         {
             Utilities.SafeActions.InvokeActionSafe(_Spawning.Spawn, "Rexmeck.GunAttachments.Spawnable.45CantedRail", new SerializedTransform(Vector3.one, Quaternion.identity), (Action<GameObject>)(source =>
@@ -169,7 +169,7 @@ public class WeaponModification
     private void AddAttachmentsToPicatinnySlots(List<GameObject> slots, Dictionary<string, string> attachmentsToAdd, bool overwriteExisting)
     {
         Log(slots, attachmentsToAdd, overwriteExisting);
-        
+
         foreach (var pair in attachmentsToAdd)
         {
             string attachmentBarcodeToSpawn = pair.Key;
@@ -195,7 +195,7 @@ public class WeaponModification
     private void AddAttachmentToPicatinnySlot(GameObject slot, string attachmentBarcode, bool overwriteExisting)
     {
         Log(slot, attachmentBarcode, overwriteExisting);
-        
+
         GameObject? alreadyExisting = GetAttachment(slot);
         if (alreadyExisting != null)
         {
@@ -211,10 +211,18 @@ public class WeaponModification
             {
                 try
                 {
+                    List<Renderer> disabledRenderers = DisableRenderers(spawnedAttachmentGo);
                     KeyReciever receiver = slot.GetComponent<KeyReciever>();
                     InteractableHost host = spawnedAttachmentGo.GetComponent<InteractableHost>();
                     if (receiver == null || host == null) return;
                     receiver.OnInteractableHostEnter(host);
+                    MelonCoroutines.Start(CoRunUponCondition(() =>
+                    {
+                        foreach (Renderer disabledRenderer in disabledRenderers)
+                        {
+                            disabledRenderer.enabled = true;
+                        }
+                    }, () => GetAttachment(slot) != null));
                 }
                 catch (InvalidOperationException)
                 {
@@ -233,7 +241,7 @@ public class WeaponModification
     private void RemoveAttachmentsFromPicatinnySlots(List<GameObject> slots, bool despawn)
     {
         Log(slots, despawn);
-        
+
         foreach (var slot in slots)
         {
             RemoveAttachmentFromPicatinnySlot(slot, despawn);
@@ -243,7 +251,7 @@ public class WeaponModification
     private void RemoveAttachmentFromPicatinnySlot(GameObject slot, bool despawn)
     {
         Log(slot, despawn);
-        
+
         GameObject? attachment = GetAttachment(slot);
         if (attachment == null) return;
         SimpleGripEvents? simpleGripEvents = attachment.GetComponentInChildren<SimpleGripEvents>();
@@ -260,7 +268,7 @@ public class WeaponModification
     private void ResetAttachmentSlots(GameObject weapon)
     {
         Log(weapon);
-        
+
         List<GameObject> slots = _ModifiedWeapons[weapon];
         foreach (GameObject slot in slots)
         {
@@ -284,7 +292,7 @@ public class WeaponModification
     private bool SlotNeedsReset(GameObject weapon, GameObject slot)
     {
         Log(weapon, slot);
-        
+
         GameObject? attachment = GetAttachment(slot);
         if (attachment == null) return false;
         AssetPoolee assetPoolee = weapon.GetComponent<AssetPoolee>();
@@ -304,6 +312,16 @@ public class WeaponModification
         }
 
         return false;
+    }
+
+    private IEnumerator CoRunUponCondition(Action action, Func<bool> condition)
+    {
+        while (!condition.Invoke())
+        {
+            yield return null;
+        }
+
+        SafeActions.InvokeActionSafe(action);
     }
 
     private void InitializeMuzzleSlotAsync(Action? continueWith = null)
@@ -337,22 +355,9 @@ public class WeaponModification
     private GameObject? GetAttachment(GameObject slot)
     {
         Log(slot);
-        
+
         if (slot == null) return null;
         GameObject? attachment = slot.transform.Find("ATTACHMENTV2")?.gameObject;
         return attachment;
-    }
-
-    public class GoComparer : IEqualityComparer<GameObject>
-    {
-        public bool Equals(GameObject x, GameObject y)
-        {
-            return x.GetInstanceID() == y.GetInstanceID();
-        }
-
-        public int GetHashCode(GameObject obj)
-        {
-            return obj.GetHashCode();
-        }
     }
 }

@@ -1,7 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Numerics;
 using System.Reflection;
 using System.Text;
 using System.Threading;
@@ -14,6 +14,8 @@ using LabFusion.Representation;
 using LabFusion.SDK.Gamemodes;
 using MelonLoader;
 using SLZ.Props.Weapons;
+using UnityEngine;
+using Vector3 = System.Numerics.Vector3;
 
 // ReSharper disable InconsistentNaming
 
@@ -90,6 +92,21 @@ public static class Commons
         }
 
         return rigReferences;
+    }
+
+    public static List<Renderer> DisableRenderers(GameObject go)
+    {
+        List<Renderer> disabledRenderers = new();
+        foreach (var renderer in go.GetComponentsInChildren<Renderer>())
+        {
+            if (renderer.enabled)
+            {
+                disabledRenderers.Add(renderer);
+                renderer.enabled = false;
+            }
+        }
+
+        return disabledRenderers;
     }
 
     public const string SpectatorAvatar = CommonBarcodes.Avatars.PolyBlank;

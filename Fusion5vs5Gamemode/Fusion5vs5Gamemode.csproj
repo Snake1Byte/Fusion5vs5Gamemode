@@ -147,6 +147,7 @@ python "D:\Windows User\Documents\Python\a\Copy_Files.py" "C:\Users\Snek\source\
     <Compile Include="Shared\Modules\ModuleMessages.cs" />
     <Compile Include="Shared\Modules\ModuleRequests.cs" />
     <Compile Include="Utilities\Extensions\IntElementExtensions.cs" />
+    <Compile Include="Utilities\GameObjectComparer.cs" />
     <Compile Include="Utilities\HarmonyPatches\GunPatches.cs" />
     <Compile Include="Utilities\HarmonyPatches\ImpactPropertiesPatches.cs" />
     <Compile Include="Utilities\HarmonyPatches\NativeUtilities.cs" />
