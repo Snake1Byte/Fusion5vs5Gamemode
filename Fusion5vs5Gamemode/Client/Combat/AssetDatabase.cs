@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using BoneLib;
+using Fusion5vs5Gamemode.Shared;
 using Fusion5vs5Gamemode.Utilities;
 using HarmonyLib;
 using LabFusion.Data;
@@ -9,6 +10,7 @@ using LabFusion.Representation;
 using MelonLoader;
 using SLZ.Interaction;
 using SLZ.Marrow.Pool;
+using SLZ.Props.Weapons;
 using UnityEngine;
 using Quaternion = System.Numerics.Quaternion;
 using Resources = Fusion5vs5Gamemode.Utilities.Resources;
@@ -22,20 +24,11 @@ namespace Fusion5vs5Gamemode.Client.Combat;
 public static class AssetDatabase
 {
     public static Dictionary<string, Attachments>? AttachmentDatabase { get; private set; }
-    private static ISpawning? _ISpawning;
 
-    public static void SetSpawningInterface(ISpawning spawning)
+    public static void InitializeDatabase()
     {
-        Log(spawning);
+        Log();
 
-        _ISpawning = spawning;
-    }
-
-    public static void InitializeDatabase(ISpawning spawningInterface)
-    {
-        Log(spawningInterface);
-
-        _ISpawning = spawningInterface;
         AttachmentDatabase = new();
         string barcode = CommonBarcodes.Guns.MK18Naked;
         Attachments attachments = new Attachments();
@@ -118,6 +111,8 @@ public static class AssetDatabase
         attachments.PicatinnySlotsToAdd.Add("Top 1", new SerializedTransform(new Vector3(0f, 0.06682f, 0.01500008f), new Quaternion(0f, 0f, 0f, 1f)));
         attachments.PicatinnySlotsToAdd.Add("Top 2", new SerializedTransform(new Vector3(0f, 0.06682f, 0.0552f), new Quaternion(0f, 0f, 0f, 1f)));
         attachments.PicatinnySlotsToAdd.Add("Top 3", new SerializedTransform(new Vector3(0f, 0.06682f, 0.1002f), new Quaternion(0f, 0f, 0f, 1f)));
+        attachments.PicatinnyAttachmentsToAdd.Add("Rexmeck.WeaponPack.Spawnable.DDIronSightRear", "Top 1");
+        attachments.PicatinnyAttachmentsToAdd.Add("Rexmeck.WeaponPack.Spawnable.DDIronSightFront", "Top 3");
         AttachmentDatabase.Add(barcode, attachments);
 
         barcode = CommonBarcodes.Guns.UMP;
@@ -225,33 +220,33 @@ public static class AssetDatabase
     {
         Log(ump);
 
-        _ISpawning?.Spawn(CommonBarcodes.Guns.MP5, new SerializedTransform(Vector3.One, Quaternion.Identity), mp5 =>
-        {
-            GameObject? barrelGrip = mp5.transform.Find("BarrelGrip")?.gameObject;
-            if (barrelGrip == null) return;
-            barrelGrip = Object.Instantiate(barrelGrip, ump.transform, true);
-            barrelGrip.name = "fusion5vs5_BarrelGrip";
-            barrelGrip.transform.localPosition = new UnityEngine.Vector3(0.0002f, 0.0204f, 0.18f);
-            barrelGrip.transform.rotation = UnityEngine.Quaternion.identity;
+        // Fix dynamically grip
+        GameObject? barrelGrip = Object.Instantiate(Resources.UmpBarrelGrip, ump.transform, false);
+        if (barrelGrip == null) return;
+        barrelGrip.transform.localPosition = new UnityEngine.Vector3(0, 0, 0);
+        barrelGrip.transform.rotation = UnityEngine.Quaternion.identity;
+        barrelGrip.hideFlags = HideFlags.None;
+        
+        CylinderGrip grip = barrelGrip.GetComponent<CylinderGrip>();
+        grip.attachedHandDelegate = null;
+        grip.detachedHandDelegate = null;
+        InteractableHost host = ump.GetComponent<InteractableHost>();
+        host._grips.Add(grip);
+        grip.Host = host.TryCast<IGrippable>();
 
-            // Fix dynamically grip
-            CylinderGrip grip = barrelGrip.GetComponent<CylinderGrip>();
-            grip.attachedHandDelegate = null;
-            grip.detachedHandDelegate = null;
-            InteractableHost host = ump.GetComponent<InteractableHost>();
-            host._grips.Add(grip);
-            grip.Host = host.TryCast<IGrippable>();
+        InteractableIcon? magGripInteractableIcon = ump.transform.Find("MagGrip")?.GetComponent<InteractableIcon>();
+        if (magGripInteractableIcon == null) return;
+        InteractableIcon interactableIcon = barrelGrip.GetComponent<InteractableIcon>();
+        interactableIcon.Mblock = magGripInteractableIcon.Mblock;
+        interactableIcon.RemoveIcon();
+        interactableIcon.AddIcon();
 
-            InteractableIcon? magGripInteractableIcon = ump.transform.Find("MagGrip")?.GetComponent<InteractableIcon>();
-            if (magGripInteractableIcon == null) return;
-            InteractableIcon interactableIcon = barrelGrip.GetComponent<InteractableIcon>();
-            interactableIcon.Mblock = magGripInteractableIcon.Mblock;
-            interactableIcon.RemoveIcon();
-            interactableIcon.AddIcon();
-
-            _ISpawning.Despawn(mp5.GetComponent<AssetPoolee>());
-            ump.GetComponent<AssetPoolee>()?.OnSpawn(0);
-        });
+        MelonCoroutines.Start(CoRunUponCondition(() =>
+            {
+                barrelGrip.transform.localPosition = new UnityEngine.Vector3(0.0002f, 0.0204f, 0.18f);
+                barrelGrip.transform.localRotation = UnityEngine.Quaternion.identity;
+            }, () => ump.transform.parent == null
+        ));
     }
 
     private static void Mp5AddCustomBody(GameObject mp5)

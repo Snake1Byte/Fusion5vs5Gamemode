@@ -76,6 +76,16 @@ public static class Commons
 #endif
     }
 
+    public static IEnumerator CoRunUponCondition(Action action, Func<bool> condition)
+    {
+        while (!condition.Invoke())
+        {
+            yield return null;
+        }
+        
+        BoneLib.SafeActions.InvokeActionSafe(action);
+    }
+
     public static IEnumerator CoRunUponConditionDelayFrames(Action action, Func<bool> condition, int delayFrames = 0)
     {
         while (!condition.Invoke())
@@ -91,16 +101,7 @@ public static class Commons
         BoneLib.SafeActions.InvokeActionSafe(action);
     }
 
-    public static IEnumerator CoRunUponCondition(Action action, Func<bool> condition)
-    {
-        while (!condition.Invoke())
-        {
-            yield return null;
-        }
-        
-        BoneLib.SafeActions.InvokeActionSafe(action);
-    }
-  public static IEnumerator CoRunUponConditionDelaySeconds(Action action, Func<bool> condition, float delaySeconds = 0)
+    public static IEnumerator CoRunUponConditionDelaySeconds(Action action, Func<bool> condition, float delaySeconds = 0)
     {
         while (!condition.Invoke())
         {

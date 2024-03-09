@@ -31,12 +31,14 @@ public static class Resources
     public static Material? Mk18MatDarkBlue { get; private set; }
     public static Material? Mk18MatYellow { get; private set; }
 
+    public static GameObject? UmpBarrelGrip { get; private set; }
+
     private static ISpawning? Spawning { get; set; }
 
     public static void Initialize(ISpawning spawningInterface)
     {
         Log();
-        
+
         Spawning = spawningInterface;
         if (Fusion5vs5Assembly != null) return;
         Fusion5vs5Assembly = Assembly.GetExecutingAssembly();
@@ -49,22 +51,28 @@ public static class Resources
         }
         else
         {
-            LoadMk18Materials();
+            LoadAdditionalResources();
         }
     }
 
     private static void HookingOnOnLevelInitialized(LevelInfo _)
     {
         Log();
-        
+
         Hooking.OnLevelInitialized -= HookingOnOnLevelInitialized;
-        LoadMk18Materials();
+        LoadAdditionalResources();
     }
 
-    private static void LoadMk18Materials()
+    private static void LoadAdditionalResources()
     {
         Log();
-        
+
+        ExtractMk18Materials();
+        ExtractUmpBarrel();
+    }
+
+    private static void ExtractMk18Materials()
+    {
         string[] barcodes =
         {
             // beige
@@ -78,14 +86,11 @@ public static class Resources
         };
         foreach (var barcode in barcodes)
         {
-            Spawning?.Spawn(barcode, new SerializedTransform(new Vector3(0, 0, 0), Quaternion.Identity), go =>
-            {
-                MelonCoroutines.Start(CoAssignMk18Materials(go));
-            });
+            Spawning?.Spawn(barcode, new SerializedTransform(new Vector3(0, 0, 0), Quaternion.Identity), go => { MelonCoroutines.Start(CoExtractMk18Materials(go)); });
         }
     }
 
-    private static IEnumerator CoAssignMk18Materials(GameObject go)
+    private static IEnumerator CoExtractMk18Materials(GameObject go)
     {
         AssetPoolee poolee = go.GetComponent<AssetPoolee>();
         if (poolee == null) yield break;
@@ -110,5 +115,20 @@ public static class Resources
         }
 
         Spawning?.Despawn(poolee);
+    }
+
+    private static void ExtractUmpBarrel()
+    {
+        Spawning?.Spawn(CommonBarcodes.Guns.MP5, new SerializedTransform(Vector3.One, Quaternion.Identity), mp5 => { MelonCoroutines.Start(CoExtractUmpBarrel(mp5)); });
+    }
+
+    private static IEnumerator CoExtractUmpBarrel(GameObject mp5)
+    {
+        GameObject? barrelGrip = mp5.transform.Find("BarrelGrip")?.gameObject;
+        if (barrelGrip == null) yield break;
+        barrelGrip.hideFlags = HideFlags.DontUnloadUnusedAsset;
+        barrelGrip.name = "fusion5vs5_BarrelGrip";
+        UmpBarrelGrip = barrelGrip;
+        Spawning?.Despawn(mp5.GetComponent<AssetPoolee>());
     }
 }

@@ -25,7 +25,7 @@ public class WeaponModification
     private static GameObject? _MuzzleSlot;
     private static GameObject? _Dovetail;
 
-    private static readonly Dictionary<GameObject, List<GameObject>> _ModifiedWeapons = new(new GameObjectComparer());
+    private static readonly Dictionary<GameObject, List<GameObject>> ModifiedWeapons = new(new GameObjectComparer());
 
     private readonly ISpawning _Spawning;
 
@@ -33,7 +33,7 @@ public class WeaponModification
     {
         Log(obj);
 
-        _ModifiedWeapons.Clear();
+        ModifiedWeapons.Clear();
     }
 
     static WeaponModification()
@@ -48,14 +48,6 @@ public class WeaponModification
         Log(spawning);
 
         _Spawning = spawning;
-        if (AssetDatabase.AttachmentDatabase == null)
-        {
-            AssetDatabase.InitializeDatabase(spawning);
-        }
-        else
-        {
-            AssetDatabase.SetSpawningInterface(spawning);
-        }
     }
 
     public void ModifyWeapon(GameObject spawnedGo)
@@ -91,7 +83,7 @@ public class WeaponModification
         MelonCoroutines.Start(CoWaitAndAddPicatinnySlots(root, attachments.PicatinnySlotsToAdd, () => _PicatinnySlot != null, list =>
         {
             addedSlots.AddRange(list);
-            _ModifiedWeapons.Add(spawnedGo, addedSlots);
+            ModifiedWeapons.Add(spawnedGo, addedSlots);
         }));
 
         MelonCoroutines.Start(CoWaitAndAddAttachmentsToPicatinnySlots(addedSlots, attachments.PicatinnyAttachmentsToAdd, true, () => addedSlots.Count != 0));
@@ -271,14 +263,14 @@ public class WeaponModification
     {
         Log(weapon);
 
-        List<GameObject> slots = _ModifiedWeapons[weapon];
+        List<GameObject> slots = ModifiedWeapons[weapon];
         foreach (GameObject slot in slots)
         {
             if (SlotNeedsReset(weapon, slot)) RemoveAttachmentFromPicatinnySlot(slot, true);
         }
 
         AssetPoolee assetPoolee = weapon.GetComponent<AssetPoolee>();
-        if (!AssetDatabase.AttachmentDatabase.TryGetValue(assetPoolee.spawnableCrate._barcode, out Attachments attachments))
+        if (!AssetDatabase.AttachmentDatabase!.TryGetValue(assetPoolee.spawnableCrate._barcode, out Attachments attachments))
             return;
         MelonCoroutines.Start(CoWaitAndAddAttachmentsToPicatinnySlots(slots, attachments.PicatinnyAttachmentsToAdd, false, () =>
         {
@@ -298,7 +290,7 @@ public class WeaponModification
         GameObject? attachment = GetAttachment(slot);
         if (attachment == null) return false;
         AssetPoolee assetPoolee = weapon.GetComponent<AssetPoolee>();
-        if (!AssetDatabase.AttachmentDatabase.TryGetValue(assetPoolee.spawnableCrate._barcode, out Attachments attachments))
+        if (!AssetDatabase.AttachmentDatabase!.TryGetValue(assetPoolee.spawnableCrate._barcode, out Attachments attachments))
             return false;
         foreach (KeyValuePair<string, string> pair in attachments.PicatinnyAttachmentsToAdd)
         {
