@@ -15,23 +15,50 @@ namespace Fusion5vs5Gamemode.Utilities;
 
 public static class ProjectileTrace
 {
-    public static Action<Projectile, TriggerRefProxy, Gun, ImpactProperties, Attack_>? OnProjectileImpactedSurface;
-    public static Action<Projectile, TriggerRefProxy, ImpactProperties, Attack_>? OnProjectileDamagedPlayer;
+    private static Action<Projectile, TriggerRefProxy, Gun, ImpactProperties, Attack_>? _OnProjectileImpactedSurface;
+    private static Action<Projectile, TriggerRefProxy, ImpactProperties, Attack_>? _OnProjectileDamagedPlayer;
 
+    public static event Action<Projectile, TriggerRefProxy, Gun, ImpactProperties, Attack_>? OnProjectileImpactedSurface
+    {
+        add
+        {
+            if (_OnProjectileImpactedSurface == null)
+            {
+                Hooking.OnLevelInitialized += EmptyDictionaries;
+                GunPatches.OnGunFired += GunFired;
+                ProjectilePatches.OnSetBulletObject += ProjectileDispatched;
+                ImpactPropertiesPatches.OnAttackReceived += ProjectileImpactedSurface;
+            }
+
+            _OnProjectileImpactedSurface += value;
+        }
+        remove
+        {
+            _OnProjectileImpactedSurface -= value;
+            if (_OnProjectileImpactedSurface == null)
+            {
+                EmptyDictionaries();
+                Hooking.OnLevelInitialized -= EmptyDictionaries;
+                GunPatches.OnGunFired -= GunFired;
+                ProjectilePatches.OnSetBulletObject -= ProjectileDispatched;
+                ImpactPropertiesPatches.OnAttackReceived -= ProjectileImpactedSurface;
+            }
+        }
+    }
+/*
+    public static event Action<Projectile, TriggerRefProxy, ImpactProperties, Attack_>? OnProjectileDamagedPlayer
+    {
+        add { OnProjectileDamagedPlayer += value; }
+        remove { OnProjectileDamagedPlayer -= value; }
+    }
+*/
+    
     private static readonly Dictionary<int, Gun> FirePointOrigin = new();
     private static readonly Dictionary<Projectile, Gun> ProjectileOrigin = new();
 
     private static readonly Dictionary<int, TriggerRefProxy> TriggerRefProxys = new();
 
     private static readonly object DictionariesLock = new();
-
-    static ProjectileTrace()
-    {
-        Hooking.OnLevelInitialized += EmptyDictionaries;
-        GunPatches.OnGunFired += GunFired;
-        ProjectilePatches.OnSetBulletObject += ProjectileDispatched;
-        ImpactPropertiesPatches.OnAttackReceived += ProjectileImpactedSurface;
-    }
 
     private static void EmptyDictionaries(LevelInfo obj)
     {
@@ -94,9 +121,11 @@ public static class ProjectileTrace
         }
     }
 
+    /*
     private static void ProjectileDamagedPlayer(Attack_ attack)
     {
     }
+    */
 
     private static void ProjectileImpactedSurface(ImpactProperties receiver, Attack_ attack)
     {
@@ -169,7 +198,7 @@ public static class ProjectileTrace
         }
 
 
-        SafeActions.InvokeActionSafe(OnProjectileImpactedSurface, impactOrigin, proxy, projectileOrigin, receiver,
+        SafeActions.InvokeActionSafe(_OnProjectileImpactedSurface, impactOrigin, proxy, projectileOrigin, receiver,
             attack);
     }
 }
