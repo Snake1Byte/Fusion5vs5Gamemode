@@ -2,7 +2,9 @@
 using BoneLib;
 using BoneLib.Nullables;
 using FieldInjector;
+using Fusion5vs5Gamemode.Client.Combat;
 using Fusion5vs5Gamemode.SDK;
+using Fusion5vs5Gamemode.Shared;
 using Fusion5vs5Gamemode.Utilities.HarmonyPatches;
 using LabFusion.Data;
 using LabFusion.Representation;

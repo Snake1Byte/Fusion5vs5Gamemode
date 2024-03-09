@@ -3,7 +3,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using BoneLib;
+using Fusion5vs5Gamemode.Shared;
 using Fusion5vs5Gamemode.Utilities;
+using Il2CppSystem.Threading.Tasks;
 using LabFusion.Data;
 using LabFusion.Extensions;
 using MelonLoader;
@@ -211,18 +213,18 @@ public class WeaponModification
             {
                 try
                 {
-                    List<Renderer> disabledRenderers = DisableRenderers(spawnedAttachmentGo);
+                    List<Renderer> disabledRenderers = DisableEnabledRenderers(spawnedAttachmentGo);
                     KeyReciever receiver = slot.GetComponent<KeyReciever>();
                     InteractableHost host = spawnedAttachmentGo.GetComponent<InteractableHost>();
                     if (receiver == null || host == null) return;
                     receiver.OnInteractableHostEnter(host);
-                    MelonCoroutines.Start(CoRunUponCondition(() =>
+                    MelonCoroutines.Start(Commons.CoRunUponCondition(() =>
                     {
                         foreach (Renderer disabledRenderer in disabledRenderers)
                         {
                             disabledRenderer.enabled = true;
                         }
-                    }, () => GetAttachment(slot) != null));
+                    }, () => IsAttachmentSlotted(slot)));
                 }
                 catch (InvalidOperationException)
                 {
@@ -314,16 +316,6 @@ public class WeaponModification
         return false;
     }
 
-    private IEnumerator CoRunUponCondition(Action action, Func<bool> condition)
-    {
-        while (!condition.Invoke())
-        {
-            yield return null;
-        }
-
-        SafeActions.InvokeActionSafe(action);
-    }
-
     private void InitializeMuzzleSlotAsync(Action? continueWith = null)
     {
         // TODO
@@ -351,7 +343,6 @@ public class WeaponModification
         return Object.Instantiate(transform.gameObject, target.transform, false);
     }
 
-
     private GameObject? GetAttachment(GameObject slot)
     {
         Log(slot);
@@ -359,5 +350,15 @@ public class WeaponModification
         if (slot == null) return null;
         GameObject? attachment = slot.transform.Find("ATTACHMENTV2")?.gameObject;
         return attachment;
+    }
+
+    private bool IsAttachmentSlotted(GameObject slot)
+    {
+        Log(slot);
+
+        if (slot == null) return false;
+        KeyReciever? receiver = slot.GetComponent<KeyReciever>();
+        if (receiver == null) return false;
+        return !receiver.enabled;
     }
 }

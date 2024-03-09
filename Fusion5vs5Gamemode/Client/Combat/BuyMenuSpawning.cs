@@ -52,7 +52,14 @@ public class BuyMenuSpawning
         }
         finally
         {
-            MelonCoroutines.Start(CoEnableRenderers(gameObject));
+            if (_RenderersHidden.TryGetValue(gameObject, out List<Renderer> renderers))
+            {
+                _RenderersHidden.Remove(gameObject);
+                foreach (Renderer renderer in renderers)
+                {
+                    renderer.enabled = true;
+                }
+            }
         }
     }
 
@@ -79,35 +86,14 @@ public class BuyMenuSpawning
         {
             new WeaponModification(new FusionSpawning(player.SmallId)).ModifyWeapon(gameObject);
 
-            MelonCoroutines.Start(CoPlaceInPlayerInventory(player, gameObject));
-        });
-    }
+            List<Renderer> renderersHidden = DisableEnabledRenderers(gameObject);
 
-    private static IEnumerator CoPlaceInPlayerInventory(PlayerId player, GameObject gameObject)
-    {
-        yield return null;
-        
-        List<Renderer> renderersHidden = DisableRenderers(gameObject);
-
-        if (renderersHidden.Count != 0)
-        {
-            _RenderersHidden.Add(gameObject, renderersHidden);
-        }
-
-        PlaceInPlayerInventory(gameObject, player);
-    }
-    
-    private static IEnumerator CoEnableRenderers(GameObject gameObject)
-    {
-        yield return null;
-        
-        if (_RenderersHidden.TryGetValue(gameObject, out List<Renderer> renderers))
-        {
-            _RenderersHidden.Remove(gameObject);
-            foreach (Renderer renderer in renderers)
+            if (renderersHidden.Count != 0)
             {
-                renderer.enabled = true;
+                _RenderersHidden.Add(gameObject, renderersHidden);
             }
-        }
+
+            PlaceInPlayerInventory(gameObject, player);
+        });
     }
 }

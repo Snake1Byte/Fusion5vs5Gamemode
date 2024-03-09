@@ -191,14 +191,7 @@ public class FusionSpawning : ISpawning
         }
     }
 
-    public void Spawn(string barcode, SerializedTransform transform, Action<GameObject> onSpawn)
-    {
-        Log(barcode, transform, onSpawn);
-        
-        DeferredServerSpawn(barcode, Owner, transform, (_, _, _, gameObject) => onSpawn(gameObject));
-    }
-
-    public void Despawn(AssetPoolee poolee)
+    private static void DeferredServerDespawn(AssetPoolee poolee)
     {
         Log(poolee);
         
@@ -211,5 +204,19 @@ public class FusionSpawning : ISpawning
                 PooleeUtilities.RequestDespawn(syncable.GetId());
             }
         }
+    }
+
+    public void Spawn(string barcode, SerializedTransform transform, Action<GameObject> onSpawn)
+    {
+        Log(barcode, transform, onSpawn);
+        
+        DeferredServerSpawn(barcode, Owner, transform, (_, _, _, gameObject) => onSpawn(gameObject));
+    }
+
+    public void Despawn(AssetPoolee poolee)
+    {
+        Log(poolee);
+
+        DeferredServerDespawn(poolee);
     }
 }

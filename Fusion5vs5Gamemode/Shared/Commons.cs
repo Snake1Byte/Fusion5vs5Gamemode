@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -75,10 +76,78 @@ public static class Commons
 #endif
     }
 
+    public static IEnumerator CoRunUponConditionDelayFrames(Action action, Func<bool> condition, int delayFrames = 0)
+    {
+        while (!condition.Invoke())
+        {
+            yield return null;
+        }
+
+        for (int i = 0; i < delayFrames; i++)
+        {
+            yield return null;
+        }
+
+        BoneLib.SafeActions.InvokeActionSafe(action);
+    }
+
+    public static IEnumerator CoRunUponCondition(Action action, Func<bool> condition)
+    {
+        while (!condition.Invoke())
+        {
+            yield return null;
+        }
+        
+        BoneLib.SafeActions.InvokeActionSafe(action);
+    }
+  public static IEnumerator CoRunUponConditionDelaySeconds(Action action, Func<bool> condition, float delaySeconds = 0)
+    {
+        while (!condition.Invoke())
+        {
+            yield return null;
+        }
+
+        if (delaySeconds > 0)
+        {
+            yield return new WaitForSeconds(delaySeconds);
+        }
+
+        BoneLib.SafeActions.InvokeActionSafe(action);
+    }
+
+    public static List<Renderer> EnableDisabledRenderers(GameObject go)
+    {
+        List<Renderer> enabledRenderers = new();
+        foreach (var renderer in go.GetComponentsInChildren<Renderer>())
+        {
+            if (!renderer.enabled)
+            {
+                enabledRenderers.Add(renderer);
+                renderer.enabled = true;
+            }
+        }
+
+        return enabledRenderers;
+    }
+    public static List<Renderer> DisableEnabledRenderers(GameObject go)
+    {
+        List<Renderer> disabledRenderers = new();
+        foreach (var renderer in go.GetComponentsInChildren<Renderer>())
+        {
+            if (renderer.enabled)
+            {
+                disabledRenderers.Add(renderer);
+                renderer.enabled = false;
+            }
+        }
+
+        return disabledRenderers;
+    }
+
     public static RigReferenceCollection? GetRigReferences(PlayerId player)
     {
         Log(player);
-        
+
         RigReferenceCollection rigReferences;
         if (player.IsSelf)
         {
@@ -94,28 +163,13 @@ public static class Commons
         return rigReferences;
     }
 
-    public static List<Renderer> DisableRenderers(GameObject go)
-    {
-        List<Renderer> disabledRenderers = new();
-        foreach (var renderer in go.GetComponentsInChildren<Renderer>())
-        {
-            if (renderer.enabled)
-            {
-                disabledRenderers.Add(renderer);
-                renderer.enabled = false;
-            }
-        }
-
-        return disabledRenderers;
-    }
-
     public const string SpectatorAvatar = CommonBarcodes.Avatars.PolyBlank;
     public static FusionDictionary<string, string> _Metadata { get; set; } = new();
 
     public static Fusion5vs5GamemodeTeams? GetTeam(PlayerId localId)
     {
         Log(localId);
-        
+
         if (_Metadata.TryGetValue(GetTeamMemberKey(localId), out string team))
         {
             return GetTeamFromValue(team);
@@ -127,21 +181,21 @@ public static class Commons
     public static string GetTeamMemberKey(PlayerId id)
     {
         Log(id);
-        
+
         return $"{Metadata.TeamKey}.{id.LongId}";
     }
 
     public static string GetTeamScoreKey(Fusion5vs5GamemodeTeams team)
     {
         Log(team);
-        
+
         return $"{Metadata.TeamScoreKey}.{team.ToString()}";
     }
 
     public static Fusion5vs5GamemodeTeams? GetTeamFromValue(string value)
     {
         Log(value);
-        
+
         try
         {
             return (Fusion5vs5GamemodeTeams)Enum.Parse(typeof(Fusion5vs5GamemodeTeams), value);
@@ -159,28 +213,28 @@ public static class Commons
     public static string GetPlayerKillsKey(PlayerId killer)
     {
         Log(killer);
-        
+
         return $"{Metadata.PlayerKillsKey}.{killer.LongId}";
     }
 
     public static string GetPlayerAssistsKey(PlayerId assister)
     {
         Log(assister);
-        
+
         return $"{Metadata.PlayerAssistsKey}.{assister.LongId}";
     }
 
     public static string GetPlayerDeathsKey(PlayerId killed)
     {
         Log(killed);
-        
+
         return $"{Metadata.PlayerDeathsKey}.{killed.LongId}";
     }
 
     public static PlayerId? GetPlayerFromValue(string player)
     {
         Log(player);
-        
+
         ulong id = ulong.Parse(player);
         foreach (var playerId in PlayerIdManager.PlayerIds)
         {
@@ -197,7 +251,7 @@ public static class Commons
     public static int GetPlayerKills(PlayerId killer)
     {
         Log(killer);
-        
+
         _Metadata.TryGetValue(GetPlayerKillsKey(killer), out string killerScore);
         return int.Parse(killerScore);
     }
@@ -205,7 +259,7 @@ public static class Commons
     public static int GetPlayerDeaths(PlayerId killed)
     {
         Log(killed);
-        
+
         _Metadata.TryGetValue(GetPlayerDeathsKey(killed), out string deathScore);
         return int.Parse(deathScore);
     }
@@ -213,7 +267,7 @@ public static class Commons
     public static int GetRoundNumber()
     {
         Log();
-        
+
         _Metadata.TryGetValue(Metadata.RoundNumberKey, out string roundNumber);
         return int.Parse(roundNumber);
     }
@@ -221,7 +275,7 @@ public static class Commons
     public static GameStates? GetGameStateFromValue(string value)
     {
         Log(value);
-        
+
         try
         {
             return (GameStates)Enum.Parse(typeof(GameStates), value);
@@ -237,7 +291,7 @@ public static class Commons
     public static GameStates? GetGameState()
     {
         Log();
-        
+
         if (_Metadata.TryGetValue(Metadata.GameStateKey, out string gameState))
         {
             return GetGameStateFromValue(gameState);
@@ -251,7 +305,7 @@ public static class Commons
     public static SerializedTransform? GetSpawnPointFromValue(string value)
     {
         Log(value);
-        
+
         try
         {
             string[] split = value.Split(',');
@@ -276,7 +330,7 @@ public static class Commons
     public static SerializedTransform? GetSpawnPoint(PlayerId player)
     {
         Log(player);
-        
+
         if (_Metadata.TryGetValue(GetSpawnPointKey(player), out string spawnPointRaw))
         {
             return GetSpawnPointFromValue(spawnPointRaw);
@@ -288,21 +342,21 @@ public static class Commons
     public static string GetSpawnPointKey(PlayerId player)
     {
         Log(player);
-        
+
         return $"{Metadata.SpawnPointKey}.{player.LongId}";
     }
 
     public static string GetPlayerFrozenKey(PlayerId player)
     {
         Log(player);
-        
+
         return $"{Metadata.PlayerFrozenKey}.{player.LongId}";
     }
 
     public static bool? IsPlayerFrozen(PlayerId player)
     {
         Log(player);
-        
+
         if (_Metadata.TryGetValue(GetPlayerFrozenKey(player), out string frozen))
         {
             try

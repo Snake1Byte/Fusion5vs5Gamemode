@@ -10,6 +10,7 @@ using Fusion5vs5Gamemode.SDK;
 using Fusion5vs5Gamemode.Server;
 using Fusion5vs5Gamemode.Shared;
 using Fusion5vs5Gamemode.Shared.Modules;
+using Fusion5vs5Gamemode.Utilities;
 using Fusion5vs5Gamemode.Utilities.Extensions;
 using Fusion5vs5Gamemode.Utilities.HarmonyPatches;
 using LabFusion.Data;
@@ -422,6 +423,8 @@ public class Client : Gamemode
         TeamSelectionMenu.OnDefendersSelected += RequestJoinDefenders;
         TeamSelectionMenu.OnAttackersSelected += RequestJoinAttackers;
         TeamSelectionMenu.OnSpectatorsSelected += RequestJoinSpectator;
+        
+        Utilities.Resources.Initialize(new FusionSpawning(0));
     }
 
     protected override void OnMetadataChanged(string key, string value)

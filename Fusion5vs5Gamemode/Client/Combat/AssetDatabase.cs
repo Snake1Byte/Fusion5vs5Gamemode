@@ -27,7 +27,7 @@ public static class AssetDatabase
     public static void SetSpawningInterface(ISpawning spawning)
     {
         Log(spawning);
-        
+
         _ISpawning = spawning;
     }
 
@@ -193,56 +193,38 @@ public static class AssetDatabase
     private static void Mk18RandomizeColor(GameObject mk18)
     {
         Log(mk18);
-        
-        string barcode = null!;
-        string currentBarcode = mk18.GetComponent<AssetPoolee>()?.spawnableCrate.Barcode;
-        if (currentBarcode == null) return;
+
+        Material? mat = null;
         switch (Random.RandomRangeInt(0, 4))
         {
             case 0:
-                // beige
-                barcode = "c1534c5a-c061-4c5c-a5e2-3d955269666c";
+                mat = Resources.Mk18MatBeige;
                 break;
             case 1:
-                // light blue
-                barcode = "c1534c5a-f3b6-4161-a525-a8955269666c";
+                mat = Resources.Mk18MatYellow;
                 break;
             case 2:
-                // dark blue
-                barcode = "c1534c5a-5c2b-4cb4-ae31-e7955269666c";
+                mat = Resources.Mk18MatDarkBlue;
                 break;
             case 3:
-                // yellow
-                barcode = "c1534c5a-4b3e-4288-849c-ce955269666c";
+                mat = Resources.Mk18MatLightBlue;
                 break;
         }
 
-        if (currentBarcode.Equals(barcode)) return;
-        _ISpawning?.Spawn(barcode, new SerializedTransform(Vector3.One, Quaternion.Identity), otherMk18 =>
+        if (mat == null) return;
+        GameObject? mk18Meshes = mk18.transform.Find("offset_MK18/WPN_MK18")?.gameObject;
+        if (mk18Meshes == null) return;
+        MeshRenderer[] renderers = mk18Meshes.GetComponentsInChildren<MeshRenderer>();
+        foreach (MeshRenderer renderer in renderers)
         {
-            try
-            {
-                Material? mat = otherMk18.transform.Find("offset_MK18/WPN_MK18")?.gameObject.GetComponent<MeshRenderer>().material;
-                if (mat == null) return;
-                GameObject? mk18Meshes = mk18.transform.Find("offset_MK18/WPN_MK18")?.gameObject;
-                if (mk18Meshes == null) return;
-                MeshRenderer[] renderers = mk18Meshes.GetComponentsInChildren<MeshRenderer>();
-                foreach (MeshRenderer renderer in renderers)
-                {
-                    renderer.material = mat;
-                }
-            }
-            finally
-            {
-                _ISpawning.Despawn(otherMk18.GetComponent<AssetPoolee>());
-            }
-        });
+            renderer.material = mat;
+        }
     }
 
     private static void UmpAddBarrelGrip(GameObject ump)
     {
         Log(ump);
-        
+
         _ISpawning?.Spawn(CommonBarcodes.Guns.MP5, new SerializedTransform(Vector3.One, Quaternion.Identity), mp5 =>
         {
             GameObject? barrelGrip = mp5.transform.Find("BarrelGrip")?.gameObject;
@@ -275,7 +257,7 @@ public static class AssetDatabase
     private static void Mp5AddCustomBody(GameObject mp5)
     {
         Log(mp5);
-        
+
         MeshFilter? filter = mp5.transform.Find("offset_MP5/WPN_MP5")?.gameObject.GetComponent<MeshFilter>();
         if (filter == null) return;
         Mesh? mp5Body = Resources.Mp5Body;
